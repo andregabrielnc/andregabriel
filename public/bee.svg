@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Bee body -->
+  <ellipse cx="50" cy="50" rx="30" ry="20" fill="yellow"/>
+  <ellipse cx="50" cy="50" rx="25" ry="15" fill="black"/>
+  <ellipse cx="50" cy="50" rx="20" ry="10" fill="yellow"/>
+  <!-- Stripes -->
+  <rect x="20" y="40" width="60" height="5" fill="black"/>
+  <rect x="20" y="50" width="60" height="5" fill="black"/>
+  <!-- Wings -->
+  <ellipse cx="35" cy="35" rx="10" ry="15" fill="white" opacity="0.7"/>
+  <ellipse cx="65" cy="35" rx="10" ry="15" fill="white" opacity="0.7"/>
+  <!-- Eyes -->
+  <circle cx="45" cy="45" r="2" fill="black"/>
+  <circle cx="55" cy="45" r="2" fill="black"/>
+</svg>
