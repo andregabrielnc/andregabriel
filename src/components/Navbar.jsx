@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -11,41 +12,29 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+  };
+
   return (
-    <nav style={{
-      position: 'fixed',
-      top: 0,
-      width: '100%',
-      zIndex: 100,
-      transition: 'all 0.3s ease',
-      padding: scrolled ? '1rem 0' : '1.5rem 0',
-      background: scrolled ? 'rgba(10, 10, 12, 0.8)' : 'transparent',
-      backdropFilter: scrolled ? 'blur(12px)' : 'none',
-      borderBottom: scrolled ? '1px solid var(--border-color)' : '1px solid transparent'
-    }}>
-      <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <a href="#" className="font-mono text-accent" style={{ fontSize: '1.2rem', textDecoration: 'none', fontWeight: 'bold' }}>
-          <span style={{ color: 'var(--text-main)' }}>~</span>/portfolio<span className="cursor-blink"></span>
-        </a>
+    <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
+      <div className="container">
+        <div className="navbar-logo">
+          <img src="/bee.svg" alt="Logo" width="30" height="30" />
+          André Gabriel
+        </div>
         
-        <div style={{ display: 'flex', gap: '2rem' }}>
-          {['About', 'Projects', 'Skills', 'Contact'].map((item) => (
-            <a 
-              key={item} 
-              href={`#${item.toLowerCase()}`}
-              className="font-mono"
-              style={{
-                color: 'var(--text-main)',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={(e) => e.target.style.color = 'var(--accent-primary)'}
-              onMouseLeave={(e) => e.target.style.color = 'var(--text-main)'}
-            >
-              <span className="text-accent">0{['About', 'Projects', 'Skills', 'Contact'].indexOf(item) + 1}.</span> {item}
-            </a>
-          ))}
+        <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
+          <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
+          <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
+          <a href="#projects" onClick={() => setMenuOpen(false)}>Projects</a>
+          <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
+        </div>
+        
+        <div className="hamburger" onClick={toggleMenu}>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
       </div>
     </nav>
