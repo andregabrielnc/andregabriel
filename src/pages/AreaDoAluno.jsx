@@ -193,16 +193,27 @@ export default function AreaDoAluno({ user, onExit }) {
             </span>
           </div>
 
+          {/* Usuário logado */}
           <div className="ml-auto flex items-center gap-3">
-            {user?.picture && (
-              <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full hidden sm:block" referrerPolicy="no-referrer" />
-            )}
+            <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-border">
+              {user?.picture
+                ? <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full shrink-0" referrerPolicy="no-referrer" />
+                : <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                    {user?.name?.[0]}
+                  </div>
+              }
+              <div className="leading-tight">
+                <p className="text-sm font-semibold text-text">{user?.name}</p>
+                <p className="text-xs text-text-muted truncate max-w-[160px]">{user?.email}</p>
+              </div>
+            </div>
+
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-text-muted border border-border hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
             >
               <LogOut size={15} />
-              <span className="hidden sm:inline">Sair</span>
+              <span>Sair</span>
             </button>
           </div>
         </header>
