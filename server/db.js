@@ -88,8 +88,17 @@ export async function initDb() {
       sources    TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS session (
+      sid    VARCHAR NOT NULL COLLATE "default",
+      sess   JSON    NOT NULL,
+      expire TIMESTAMPTZ NOT NULL,
+      CONSTRAINT session_pkey PRIMARY KEY (sid)
+    );
+    CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
   `);
   console.log('Database schema ready.');
 }
 
+export { pool };
 export default pool;

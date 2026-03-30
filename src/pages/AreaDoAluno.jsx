@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, BookOpen, ClipboardList, ChevronLeft,
-  ChevronRight, Menu, X, LogOut, GraduationCap
+  ChevronRight, Menu, LogOut, GraduationCap
 } from 'lucide-react';
 import Flashcards from './Flashcards';
 import QuestoesEBSERH from './QuestoesEBSERH';
 
 const menuItems = [
-  { id: 'dashboard', label: 'Início',           icon: LayoutDashboard },
+  { id: 'dashboard',  label: 'Início',          icon: LayoutDashboard },
   { id: 'flashcards', label: 'Flashcards',       icon: BookOpen },
   { id: 'questoes',   label: 'Questões EBSERH',  icon: ClipboardList },
 ];
 
-function Dashboard() {
+function Dashboard({ user }) {
   return (
     <div className="p-6 max-w-4xl">
-      <h1 className="text-2xl font-bold text-text font-heading mb-1">Bem-vindo à Área do Aluno</h1>
+      <h1 className="text-2xl font-bold text-text font-heading mb-1">
+        Olá{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!
+      </h1>
       <p className="text-text-muted mb-8">Selecione uma ferramenta no menu lateral para começar.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -43,36 +45,37 @@ function Dashboard() {
   );
 }
 
-export default function AreaDoAluno({ onExit }) {
+export default function AreaDoAluno({ user, onExit }) {
   const [active, setActive]         = useState('dashboard');
   const [collapsed, setCollapsed]   = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Fecha sidebar mobile ao trocar de item
-  const navigate = (id) => {
-    setActive(id);
-    setMobileOpen(false);
-  };
+  const navigate = (id) => { setActive(id); setMobileOpen(false); };
 
-  // Fecha sidebar mobile no resize para desktop
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Bloqueia scroll do body quando sidebar mobile está aberta
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (_) {}
+    onExit();
+  };
 
   const sidebarW = collapsed ? 'w-16' : 'w-64';
 
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
 
-      {/* ── Overlay mobile ── */}
+      {/* Overlay mobile */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
@@ -80,7 +83,7 @@ export default function AreaDoAluno({ onExit }) {
         />
       )}
 
-      {/* ── Sidebar ── */}
+      {/* Sidebar */}
       <aside
         className={`
           fixed lg:relative inset-y-0 left-0 z-40
@@ -105,8 +108,6 @@ export default function AreaDoAluno({ onExit }) {
               AG
             </div>
           )}
-
-          {/* Collapse toggle — só desktop */}
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="hidden lg:flex p-1 rounded hover:bg-white/10 transition-colors text-white/60 hover:text-white shrink-0"
@@ -114,6 +115,20 @@ export default function AreaDoAluno({ onExit }) {
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
+
+        {/* Perfil do usuário */}
+        {!collapsed && user && (
+          <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3">
+            {user.picture
+              ? <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full shrink-0" referrerPolicy="no-referrer" />
+              : <div className="w-8 h-8 rounded-full bg-primary/40 flex items-center justify-center text-xs font-bold shrink-0">{user.name?.[0]}</div>
+            }
+            <div className="overflow-hidden">
+              <p className="text-sm font-medium text-white truncate">{user.name}</p>
+              <p className="text-xs text-white/40 truncate">{user.email}</p>
+            </div>
+          </div>
+        )}
 
         {/* Menu */}
         <nav className="flex-1 overflow-y-auto py-4">
@@ -130,9 +145,7 @@ export default function AreaDoAluno({ onExit }) {
                   title={collapsed ? label : undefined}
                   className={`
                     w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                    ${active === id
-                      ? 'bg-primary text-white'
-                      : 'text-white/60 hover:bg-white/10 hover:text-white'}
+                    ${active === id ? 'bg-primary text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'}
                     ${collapsed ? 'justify-center' : ''}
                   `}
                 >
@@ -144,11 +157,11 @@ export default function AreaDoAluno({ onExit }) {
           </ul>
         </nav>
 
-        {/* Footer — sair */}
+        {/* Sair */}
         <div className="border-t border-white/10 p-2 shrink-0">
           <button
-            onClick={onExit}
-            title={collapsed ? 'Voltar ao site' : undefined}
+            onClick={handleLogout}
+            title={collapsed ? 'Sair' : undefined}
             className={`
               w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
               text-white/50 hover:bg-white/10 hover:text-white transition-colors
@@ -156,17 +169,16 @@ export default function AreaDoAluno({ onExit }) {
             `}
           >
             <LogOut size={18} className="shrink-0" />
-            {!collapsed && <span>Voltar ao site</span>}
+            {!collapsed && <span>Sair</span>}
           </button>
         </div>
       </aside>
 
-      {/* ── Conteúdo principal ── */}
+      {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Topbar */}
         <header className="h-16 bg-white border-b border-border flex items-center px-4 gap-4 shrink-0 shadow-sm">
-          {/* Hamburguer mobile */}
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden p-2 rounded-lg text-text-muted hover:text-primary hover:bg-bg transition-colors"
@@ -181,20 +193,23 @@ export default function AreaDoAluno({ onExit }) {
             </span>
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            {user?.picture && (
+              <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full hidden sm:block" referrerPolicy="no-referrer" />
+            )}
             <button
-              onClick={onExit}
+              onClick={handleLogout}
               className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors"
             >
               <LogOut size={15} />
-              <span className="hidden sm:inline">Voltar ao site</span>
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </header>
 
         {/* Página ativa */}
         <main className="flex-1 overflow-auto">
-          {active === 'dashboard'  && <Dashboard />}
+          {active === 'dashboard'  && <Dashboard user={user} />}
           {active === 'flashcards' && <Flashcards embedded />}
           {active === 'questoes'   && <QuestoesEBSERH embedded />}
         </main>

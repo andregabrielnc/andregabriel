@@ -10,7 +10,7 @@ const homeLinks = [
   { label: 'Contato',          href: '#contact' },
 ];
 
-const Navbar = ({ page, setPage }) => {
+const Navbar = ({ page, setPage, goAluno }) => {
   const [scrolled, setScrolled]     = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -25,13 +25,20 @@ const Navbar = ({ page, setPage }) => {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const goHome = () => { setPage('home'); setMobileOpen(false); };
-
-  const goAluno = () => {
-    setPage('aluno');
+  const handleGoAluno = async () => {
     setMobileOpen(false);
-    window.scrollTo(0, 0);
+    try {
+      const res = await fetch('/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) { goAluno(); return; }
+      }
+    } catch (_) {}
+    // Não autenticado — inicia fluxo OAuth
+    window.location.href = '/auth/google';
   };
+
+  const goHome = () => { setPage('home'); setMobileOpen(false); };
 
   return (
     <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 bg-white ${scrolled ? 'shadow-md border-b border-border' : 'border-b border-border'}`}>
@@ -70,7 +77,7 @@ const Navbar = ({ page, setPage }) => {
           )}
 
           <button
-            onClick={goAluno}
+            onClick={handleGoAluno}
             className="ml-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-primary text-primary hover:bg-blue-50"
           >
             Área do Aluno
@@ -106,7 +113,7 @@ const Navbar = ({ page, setPage }) => {
               </a>
             ))}
             <button
-              onClick={goAluno}
+              onClick={handleGoAluno}
               className="mx-4 mt-2 py-3 px-5 rounded-lg font-bold text-sm text-center border border-primary text-primary"
             >
               Área do Aluno

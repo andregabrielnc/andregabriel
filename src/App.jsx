@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -16,12 +16,48 @@ import CookieBanner from './components/CookieBanner';
 import AreaDoAluno from './pages/AreaDoAluno';
 
 function App() {
-  const [page, setPage] = useState('home');
+  const [page, setPage]           = useState('home');
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser]           = useState(null);
+
+  useEffect(() => {
+    const params     = new URLSearchParams(window.location.search);
+    const wantsAluno = params.get('aluno') === '1';
+
+    if (wantsAluno) {
+      window.history.replaceState({}, '', '/');
+    }
+
+    fetch('/auth/me', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.user) {
+          setUser(data.user);
+          const savedPage = sessionStorage.getItem('lastPage');
+          if (wantsAluno || savedPage === 'aluno') setPage('aluno');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  const goAluno = () => {
+    sessionStorage.setItem('lastPage', 'aluno');
+    setPage('aluno');
+  };
+
+  const exitAluno = () => {
+    sessionStorage.removeItem('lastPage');
+    setUser(null);
+    setPage('home');
+  };
+
+  if (!authChecked) return null;
 
   if (page === 'aluno') {
     return (
       <>
-        <AreaDoAluno onExit={() => setPage('home')} />
+        <AreaDoAluno user={user} onExit={exitAluno} />
         <Toaster position="bottom-right" richColors closeButton />
       </>
     );
@@ -29,7 +65,7 @@ function App() {
 
   return (
     <>
-      <Navbar page={page} setPage={setPage} />
+      <Navbar page={page} setPage={setPage} goAluno={goAluno} />
       <main>
         <Hero />
         <Blog />
