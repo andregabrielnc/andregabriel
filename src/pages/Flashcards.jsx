@@ -775,6 +775,33 @@ function StatsInline({ sessionId, plugins }) {
   );
 }
 
+// ─── Cloze Card Renderer ─────────────────────────────────────────────────────
+function ClozeCard({ card, flipped }) {
+  const renderCloze = (text, reveal) =>
+    text.replace(/\{\{c::([\s\S]*?)\}\}/g, (_, word) =>
+      reveal
+        ? `<mark style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:600">${word}</mark>`
+        : `<span style="display:inline-block;background:#1d4ed8;color:white;padding:1px 10px;border-radius:4px;min-width:3ch;text-align:center;font-size:0.85em">[...]</span>`
+    );
+
+  const html = renderCloze(card.front, flipped);
+  const hasBack = card.back && card.back.trim() && card.back !== '<p></p>';
+
+  return (
+    <div className="flex flex-col gap-2 w-full text-left">
+      <div className="fc-content prose prose-sm max-w-none text-text leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: html }} />
+      {flipped && hasBack && (
+        <div className="mt-3 text-sm text-text bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <span className="text-xs font-semibold text-text-muted uppercase tracking-wide block mb-1">Contexto</span>
+          <div className="fc-content prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: card.back }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Occlusion Card Renderer ─────────────────────────────────────────────────
 function OcclusionCard({ card, flipped }) {
   const [note, setNote] = useState(null);
@@ -839,13 +866,16 @@ function OcclusionOverlay({ shapes, imageData, targetIdx, flipped, mode }) {
         const height = (s.h / dim.nh) * 100;
 
         const isTarget = i === targetIdx;
-        // reveal_all: front shows all revealed (no covering), back shows label highlight
-        const shouldCover = flipped ? false
+
+        // Front: what to cover?
+        // Back : non-target shapes stay blue in hide modes (Anki behaviour)
+        const shouldCover = flipped
+          ? (mode !== 'reveal_all') && !isTarget
           : mode === 'reveal_all' ? false
           : mode === 'hide_all'   ? true
-          : isTarget;
+          : isTarget; // hide_one: only target on front
 
-        const showHighlight = !shouldCover && isTarget;
+        const showHighlight = isTarget && flipped; // green border on the answer
         if (!shouldCover && !showHighlight) return null;
 
         const isEllipse = s.type === 'ellipse';
@@ -1027,6 +1057,14 @@ function StudyMode({ deck, onExit }) {
               <div className="text-xs text-text-muted uppercase tracking-widest font-medium text-center">{deck.name}</div>
               <OcclusionCard card={card} flipped={flipped} />
               {!flipped && <div className="text-xs text-text-muted opacity-50 text-center">toque para revelar</div>}
+            </div>
+          ) : card.front.includes('{{c::') ? (
+            /* ── Cloze Card ── */
+            <div className="p-6 flex-1 flex flex-col gap-3" onClick={() => !flipped && setFlipped(true)}>
+              <div className="text-xs text-text-muted uppercase tracking-widest font-medium text-center">{deck.name}</div>
+              <div className="text-xs text-center font-medium text-blue-500 mb-1">Cloze — ocultar tudo</div>
+              <ClozeCard card={card} flipped={flipped} />
+              {!flipped && <div className="text-xs text-text-muted opacity-50 text-center mt-2">toque para revelar</div>}
             </div>
           ) : (
             <>
@@ -1219,7 +1257,8 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width  / rect.width;
     const scaleY = canvas.height / rect.height;
-    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    const src    = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
   };
 
   const hitTest = (s, x, y) => {
@@ -1327,8 +1366,11 @@ function OcclusionEditor({ deck, noteId, onClose }) {
             </label>
           ) : (
             <div className="relative border border-border rounded-xl overflow-hidden bg-bg">
-              <canvas ref={canvasRef} className="w-full cursor-crosshair select-none"
-                onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp} />
+              <canvas ref={canvasRef} className="w-full cursor-crosshair select-none touch-none"
+                onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+                onTouchStart={e => { e.preventDefault(); onMouseDown(e); }}
+                onTouchMove={e => { e.preventDefault(); onMouseMove(e); }}
+                onTouchEnd={e => { e.preventDefault(); onMouseUp(); }} />
             </div>
           )}
           <p className="text-xs text-text-muted">Clique e arraste para criar formas · Clique para selecionar · <kbd className="bg-bg border border-border rounded px-1">Del</kbd> excluir · <kbd className="bg-bg border border-border rounded px-1">Esc</kbd> cancelar</p>
@@ -1414,6 +1456,67 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   );
 }
 
+// ─── Cloze Editor ────────────────────────────────────────────────────────────
+function ClozeEditor({ value, onChange }) {
+  const textareaRef = useRef(null);
+
+  const wrapCloze = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e, value: v } = el;
+    if (s === e) return; // nothing selected
+    const selected = v.slice(s, e);
+    const next = v.slice(0, s) + `{{c::${selected}}}` + v.slice(e);
+    onChange(next);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(s + 5, s + 5 + selected.length);
+    }, 0);
+  };
+
+  const preview = value.replace(/\{\{c::([\s\S]*?)\}\}/g,
+    (_, w) => `<span style="display:inline-block;background:#1d4ed8;color:white;padding:0 8px;border-radius:4px;font-size:0.85em">[...]</span>`
+  );
+  const previewBack = value.replace(/\{\{c::([\s\S]*?)\}\}/g,
+    (_, w) => `<mark style="background:#dbeafe;color:#1d4ed8;padding:0 6px;border-radius:4px;font-weight:600">${w}</mark>`
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-text-muted">Selecione palavras no texto e clique para ocultar:</span>
+        <button type="button" onClick={wrapCloze}
+          className="px-3 py-1 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors flex items-center gap-1">
+          <EyeOff size={11} /> Ocultar selecionado
+        </button>
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        rows={5}
+        placeholder="Digite o texto completo aqui. Selecione palavras e clique em 'Ocultar selecionado' para criar lacunas.&#10;&#10;Exemplo: O coração tem 4 câmaras."
+        className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none font-mono"
+      />
+      {value && (
+        <div className="border border-border rounded-xl overflow-hidden text-sm">
+          <div className="bg-bg px-3 py-1.5 text-xs font-semibold text-text-muted border-b border-border flex gap-4">
+            <span>Frente (ocultado)</span>
+          </div>
+          <div className="px-3 py-2 leading-relaxed" dangerouslySetInnerHTML={{ __html: preview || '—' }} />
+          <div className="bg-bg px-3 py-1.5 text-xs font-semibold text-text-muted border-t border-b border-border">
+            <span>Verso (revelado)</span>
+          </div>
+          <div className="px-3 py-2 leading-relaxed" dangerouslySetInnerHTML={{ __html: previewBack || '—' }} />
+        </div>
+      )}
+      <p className="text-xs text-text-muted">
+        Dica: use <code className="bg-bg border border-border rounded px-1">{'{{c::palavra}}'}</code> para marcar manualmente.
+      </p>
+    </div>
+  );
+}
+
 // ─── Card Table ───────────────────────────────────────────────────────────────
 function CardTable({ cards, loading, onEdit, onDelete }) {
   const [search, setSearch]   = useState('');
@@ -1426,10 +1529,21 @@ function CardTable({ cards, loading, onEdit, onDelete }) {
     return div.textContent || '';
   };
 
+  const getLabel = (c) => {
+    if (c.occlusion_note_id != null) return `🖼 Máscara ${(c.shape_index ?? 0) + 1}`;
+    if (stripHtml(c.front).includes('{{c::')) return `📝 Cloze`;
+    return stripHtml(c.front) || '—';
+  };
+  const getBackLabel = (c) => {
+    if (c.occlusion_note_id != null) return c.back || '—';
+    if (stripHtml(c.front).includes('{{c::')) return '(Cloze Hide All)';
+    return stripHtml(c.back) || '—';
+  };
+
   const filtered = cards.filter(c => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return stripHtml(c.front).toLowerCase().includes(q) || stripHtml(c.back).toLowerCase().includes(q);
+    return getLabel(c).toLowerCase().includes(q) || getBackLabel(c).toLowerCase().includes(q);
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
@@ -1497,10 +1611,10 @@ function CardTable({ cards, loading, onEdit, onDelete }) {
                         {(safePage - 1) * LIMIT + i + 1}
                       </td>
                       <td className="px-4 py-3 max-w-[220px]">
-                        <p className="text-text font-medium truncate">{stripHtml(c.front) || '—'}</p>
+                        <p className="text-text font-medium truncate">{getLabel(c)}</p>
                       </td>
                       <td className="px-4 py-3 max-w-[220px] hidden md:table-cell">
-                        <p className="text-text-muted truncate">{stripHtml(c.back) || '—'}</p>
+                        <p className="text-text-muted truncate">{getBackLabel(c)}</p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 justify-end">
@@ -1562,7 +1676,9 @@ function CardEditor({ deck, onClose, plugins }) {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [cardType, setCardType] = useState('basic'); // 'basic' | 'cloze'
   const [form, setForm] = useState({ front: '', back: '', hint: '' });
+  const [clozeText, setClozeText] = useState('');
   const [deletingCard, setDeletingCard] = useState(null);
   const [showOcclusion, setShowOcclusion] = useState(false);
 
@@ -1572,25 +1688,45 @@ function CardEditor({ deck, onClose, plugins }) {
       .then(data => { setCards(data); setLoading(false); });
   }, [deck.id]);
 
-  const openNew = () => { setForm({ front: '', back: '', hint: '' }); setEditing('new'); };
-  const openEdit = (c) => { setForm({ front: c.front, back: c.back, hint: c.hint || '' }); setEditing(c); };
+  const openNew = () => {
+    setForm({ front: '', back: '', hint: '' });
+    setClozeText('');
+    setCardType('basic');
+    setEditing('new');
+  };
+  const openEdit = (c) => {
+    const isCloze = c.front.includes('{{c::');
+    setCardType(isCloze ? 'cloze' : 'basic');
+    setClozeText(isCloze ? c.front : '');
+    setForm({ front: c.front, back: c.back, hint: c.hint || '' });
+    setEditing(c);
+  };
 
   const save = async () => {
-    if (!form.front.trim() || !form.back.trim()) return;
+    const front = cardType === 'cloze' ? clozeText : form.front;
+    const back  = cardType === 'cloze' ? form.back  : form.back;
+    if (!front.trim()) return;
+    if (cardType === 'basic' && !back.trim()) return;
     if (editing === 'new') {
+      const payload = cardType === 'cloze'
+        ? { deck_id: deck.id, front: clozeText, back: form.back, hint: form.hint }
+        : { deck_id: deck.id, ...form };
       const r = await fetch(`${API}/cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deck.id, ...form }),
+        body: JSON.stringify(payload),
       });
       const newCard = await r.json();
       setCards(c => [...c, newCard]);
       toast.success('Card criado com sucesso.');
     } else {
+      const payload = cardType === 'cloze'
+        ? { front: clozeText, back: form.back, hint: form.hint }
+        : form;
       const r = await fetch(`${API}/cards/${editing.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const updated = await r.json();
       setCards(c => c.map(x => x.id === updated.id ? updated : x));
@@ -1630,7 +1766,7 @@ function CardEditor({ deck, onClose, plugins }) {
           {plugins?.imageOcclusion && (
             <button onClick={() => setShowOcclusion(true)}
               className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted rounded-lg text-sm hover:border-primary hover:text-primary transition-colors">
-              <ImageIcon size={14} /> Oclusão de imagem
+              <ImageIcon size={14} /> Image Occlusion
             </button>
           )}
           <button onClick={openNew}
@@ -1641,8 +1777,12 @@ function CardEditor({ deck, onClose, plugins }) {
       </div>
 
       {showOcclusion && (
-        <OcclusionEditor deck={deck} onClose={() => { setShowOcclusion(false);
-          fetch(`${API}/decks/${deck.id}/cards`).then(r => r.json()).then(data => setCards(data)); }} />
+        <div className="fixed inset-0 z-50 bg-bg overflow-auto">
+          <OcclusionEditor deck={deck} onClose={() => {
+            setShowOcclusion(false);
+            fetch(`${API}/decks/${deck.id}/cards`).then(r => r.json()).then(data => setCards(data));
+          }} />
+        </div>
       )}
 
       {/* Card form modal */}
@@ -1657,23 +1797,55 @@ function CardEditor({ deck, onClose, plugins }) {
                 <button onClick={() => setEditing(null)} className="p-1.5 text-text-muted hover:text-text transition-colors"><X size={18} /></button>
               </div>
 
+              {/* Card type tabs */}
+              <div className="flex gap-1 p-1 bg-bg rounded-lg border border-border">
+                {[
+                  { id: 'basic', label: '📋 Básico (Frente/Verso)' },
+                  { id: 'cloze', label: '📝 Cloze (Ocultar tudo)' },
+                ].map(t => (
+                  <button key={t.id} type="button" onClick={() => setCardType(t.id)}
+                    className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition-colors ${cardType === t.id ? 'bg-white shadow-sm text-primary border border-border' : 'text-text-muted hover:text-text'}`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Frente</label>
-                  <RichEditor
-                    content={form.front}
-                    onChange={html => setForm(f => ({ ...f, front: html }))}
-                    placeholder="Pergunta ou conceito..."
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Verso</label>
-                  <RichEditor
-                    content={form.back}
-                    onChange={html => setForm(f => ({ ...f, back: html }))}
-                    placeholder="Resposta ou definição..."
-                  />
-                </div>
+                {cardType === 'cloze' ? (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Texto com lacunas</label>
+                      <ClozeEditor value={clozeText} onChange={setClozeText} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Contexto extra (opcional)</label>
+                      <RichEditor
+                        content={form.back}
+                        onChange={html => setForm(f => ({ ...f, back: html }))}
+                        placeholder="Informações adicionais exibidas no verso..."
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Frente</label>
+                      <RichEditor
+                        content={form.front}
+                        onChange={html => setForm(f => ({ ...f, front: html }))}
+                        placeholder="Pergunta ou conceito..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Verso</label>
+                      <RichEditor
+                        content={form.back}
+                        onChange={html => setForm(f => ({ ...f, back: html }))}
+                        placeholder="Resposta ou definição..."
+                      />
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Dica (opcional)</label>
                   <input value={form.hint} onChange={e => setForm(f => ({ ...f, hint: e.target.value }))}
