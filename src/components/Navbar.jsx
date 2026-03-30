@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 
 const homeLinks = [
-  { label: 'Início', href: '#home' },
+  { label: 'Início',           href: '#home' },
   { label: 'Mentoria & Aulas', href: '#concursos' },
-  { label: 'Discursivas', href: '#discursivas' },
-  { label: 'Minha Jornada', href: '#experience' },
-  { label: 'Depoimentos', href: '#testimonials' },
-  { label: 'Contato', href: '#contact' },
+  { label: 'Discursivas',      href: '#discursivas' },
+  { label: 'Minha Jornada',    href: '#experience' },
+  { label: 'Depoimentos',      href: '#testimonials' },
+  { label: 'Contato',          href: '#contact' },
 ];
 
 const Navbar = ({ page, setPage }) => {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled]     = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -25,19 +25,10 @@ const Navbar = ({ page, setPage }) => {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const goHome = () => {
-    setPage('home');
-    setMobileOpen(false);
-  };
+  const goHome = () => { setPage('home'); setMobileOpen(false); };
 
-  const goQuestoes = () => {
-    setPage('questoes');
-    setMobileOpen(false);
-    window.scrollTo(0, 0);
-  };
-
-  const goFlashcards = () => {
-    setPage('flashcards');
+  const goAluno = () => {
+    setPage('aluno');
     setMobileOpen(false);
     window.scrollTo(0, 0);
   };
@@ -58,7 +49,7 @@ const Navbar = ({ page, setPage }) => {
 
         {/* Desktop Nav */}
         <div className="hidden lg:flex items-center gap-1">
-          {page === 'home' && homeLinks.map((link) =>
+          {homeLinks.map((link) =>
             link.label === 'Contato' ? (
               <a
                 key={link.href}
@@ -78,27 +69,12 @@ const Navbar = ({ page, setPage }) => {
             )
           )}
 
-          {/* Questões EBSERH item */}
           <button
-            onClick={goQuestoes}
-            className={`ml-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${page === 'questoes' ? 'bg-primary text-white' : 'border border-primary text-primary hover:bg-blue-50'}`}
+            onClick={goAluno}
+            className="ml-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-primary text-primary hover:bg-blue-50"
           >
-            Questões EBSERH
+            Área do Aluno
           </button>
-
-          {/* Flashcards item */}
-          <button
-            onClick={goFlashcards}
-            className={`ml-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${page === 'flashcards' ? 'bg-primary text-white' : 'border border-border text-text-muted hover:border-primary hover:text-primary'}`}
-          >
-            Flashcards
-          </button>
-
-          {(page === 'questoes' || page === 'flashcards') && (
-            <button onClick={goHome} className="ml-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-text-muted hover:border-border-dark transition-colors">
-              ← Voltar ao site
-            </button>
-          )}
         </div>
 
         {/* Mobile Hamburger */}
@@ -115,7 +91,7 @@ const Navbar = ({ page, setPage }) => {
       {mobileOpen && (
         <div className="lg:hidden absolute top-16 left-0 w-full bg-white border-t border-border shadow-xl z-40">
           <div className="flex flex-col py-4">
-            {page === 'home' && homeLinks.map((link) => (
+            {homeLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
@@ -130,22 +106,11 @@ const Navbar = ({ page, setPage }) => {
               </a>
             ))}
             <button
-              onClick={goQuestoes}
-              className={`mx-4 mt-2 py-3 px-5 rounded-lg font-bold text-sm text-center transition-colors ${page === 'questoes' ? 'bg-primary text-white' : 'border border-primary text-primary'}`}
+              onClick={goAluno}
+              className="mx-4 mt-2 py-3 px-5 rounded-lg font-bold text-sm text-center border border-primary text-primary"
             >
-              Questões EBSERH
+              Área do Aluno
             </button>
-            <button
-              onClick={goFlashcards}
-              className={`mx-4 mt-2 py-3 px-5 rounded-lg font-bold text-sm text-center transition-colors ${page === 'flashcards' ? 'bg-primary text-white' : 'border border-border text-text-muted'}`}
-            >
-              Flashcards
-            </button>
-            {(page === 'questoes' || page === 'flashcards') && (
-              <button onClick={goHome} className="mx-4 mt-2 py-3 px-5 border border-border rounded-lg text-sm font-medium text-text-muted text-center">
-                ← Voltar ao site
-              </button>
-            )}
           </div>
         </div>
       )}

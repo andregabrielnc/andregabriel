@@ -13,41 +13,35 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import CookieBanner from './components/CookieBanner';
-import QuestoesEBSERH from './pages/QuestoesEBSERH';
-import Flashcards from './pages/Flashcards';
+import AreaDoAluno from './pages/AreaDoAluno';
 
 function App() {
   const [page, setPage] = useState('home');
 
+  if (page === 'aluno') {
+    return (
+      <>
+        <AreaDoAluno onExit={() => setPage('home')} />
+        <Toaster position="bottom-right" richColors closeButton />
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar page={page} setPage={setPage} />
-
-      {page === 'questoes' ? (
-        <div className="pt-16">
-          <QuestoesEBSERH />
-        </div>
-      ) : page === 'flashcards' ? (
-        <div className="pt-16">
-          <Flashcards />
-        </div>
-      ) : (
-        <>
-          <main>
-            <Hero />
-            <Blog />
-            <HowItHelps />
-            <Concursos />
-            <Discursivas />
-            <Experience />
-            <Testimonials />
-            <FAQ />
-            <Contact />
-          </main>
-          <Footer />
-        </>
-      )}
-
+      <main>
+        <Hero />
+        <Blog />
+        <HowItHelps />
+        <Concursos />
+        <Discursivas />
+        <Experience />
+        <Testimonials />
+        <FAQ />
+        <Contact />
+      </main>
+      <Footer />
       <WhatsAppButton />
       <CookieBanner />
       <Toaster position="bottom-right" richColors closeButton />
