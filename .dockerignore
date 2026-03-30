@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+.claude
+*.PNG
+*.pdf
+*.jpg
+*.zip
+template/
+exemplos/
+scripts/
