@@ -7,7 +7,12 @@ import { initDb } from './db.js';
 const app = express();
 const PORT = 3001;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+const ALLOWED_ORIGINS = [
+  'https://andregabriel.com.br',
+  'https://www.andregabriel.com.br',
+  'http://localhost:5173',
+];
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ALLOWED_ORIGINS }));
 app.use(express.json({ limit: '15mb' }));
 
 app.use('/api', flashcardsRouter);
