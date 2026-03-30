@@ -860,6 +860,19 @@ function OcclusionOverlay({ shapes, imageData, targetIdx, flipped, mode }) {
   return (
     <div className="absolute inset-0 pointer-events-none">
       {shapes.map((s, i) => {
+        // Text annotations: render as visible text, not a mask
+        if (s.type === 'text') {
+          const left = (s.x / dim.nw) * 100;
+          const top  = (s.y / dim.nh) * 100;
+          const fs   = ((s.fontSize || 24) / dim.nh) * 100;
+          return (
+            <span key={i} style={{ position: 'absolute', left: `${left}%`, top: `${top}%`, fontSize: `${fs}vw`, color: '#e53e3e', fontWeight: 'bold', whiteSpace: 'nowrap', transform: 'translateY(-100%)' }}>
+              {s.text}
+            </span>
+          );
+        }
+
+        // Freehand and other shapes use bounding box (x, y, w, h) as the mask
         const left   = (s.x / dim.nw) * 100;
         const top    = (s.y / dim.nh) * 100;
         const width  = (s.w / dim.nw) * 100;
@@ -1172,12 +1185,13 @@ function PluginModal({ plugins, onChange, onClose }) {
 // ─── Image Occlusion Editor (Anki IOE–style) ─────────────────────────────────
 function OcclusionEditor({ deck, noteId, onClose }) {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const [image, setImage]       = useState(null);
   const [imgEl, setImgEl]       = useState(null);
   const [shapes, setShapes]     = useState([]);
   const [drawing, setDrawing]   = useState(null);
   const [selected, setSelected] = useState(null);
-  const [tool, setTool]         = useState('rect');   // 'select' | 'rect' | 'ellipse'
+  const [tool, setTool]         = useState('rect');   // 'select' | 'rect' | 'ellipse' | 'freehand' | 'text'
   const [header, setHeader]     = useState('');
   const [footer, setFooter]     = useState('');
   const [remarks, setRemarks]   = useState('');
@@ -1190,6 +1204,17 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(null);
   const [resizeHandle, setResizeHandle] = useState(null);
+  const [freehandPoints, setFreehandPoints] = useState(null); // [{x,y},...] while drawing
+  const [textInput, setTextInput] = useState(null); // { x, y, canvasX, canvasY } floating input position
+  const [textVal, setTextVal] = useState('');
+
+  // Auto-fit: calculate zoom so image fits container width
+  const autoFitZoom = useCallback(() => {
+    if (!imgEl || !containerRef.current) return;
+    const containerWidth = containerRef.current.clientWidth - 24; // minus padding
+    const fitZoom = Math.floor((containerWidth / imgEl.naturalWidth) * 100);
+    setZoom(Math.max(10, Math.min(fitZoom, 100)));
+  }, [imgEl]);
 
   // Carrega nota existente
   useEffect(() => {
@@ -1205,6 +1230,12 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     });
   }, [noteId]);
 
+  // Auto-fit when image loads or container resizes
+  useEffect(() => {
+    if (!imgEl) return;
+    autoFitZoom();
+  }, [imgEl, autoFitZoom]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
@@ -1213,22 +1244,27 @@ function OcclusionEditor({ deck, noteId, onClose }) {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected !== null) {
         setShapes(s => s.filter((_, i) => i !== selected)); setSelected(null);
       }
-      if (e.key === 'Escape') { setDrawing(null); setSelected(null); setResizeHandle(null); setIsDragging(false); }
+      if (e.key === 'Escape') { setDrawing(null); setSelected(null); setResizeHandle(null); setIsDragging(false); setFreehandPoints(null); setTextInput(null); }
       if (e.key === 'v' || e.key === 'V') setTool('select');
       if (e.key === 'r' || e.key === 'R') setTool('rect');
       if (e.key === 'e' || e.key === 'E') setTool('ellipse');
+      if (e.key === 'd' || e.key === 'D') setTool('freehand');
+      if (e.key === 't' || e.key === 'T') setTool('text');
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [selected]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
-  const getHandlePositions = (s) => [
-    { key: 'nw', x: s.x, y: s.y }, { key: 'n', x: s.x + s.w / 2, y: s.y },
-    { key: 'ne', x: s.x + s.w, y: s.y }, { key: 'e', x: s.x + s.w, y: s.y + s.h / 2 },
-    { key: 'se', x: s.x + s.w, y: s.y + s.h }, { key: 's', x: s.x + s.w / 2, y: s.y + s.h },
-    { key: 'sw', x: s.x, y: s.y + s.h }, { key: 'w', x: s.x, y: s.y + s.h / 2 },
-  ];
+  const getHandlePositions = (s) => {
+    if (s.type === 'text') return [];
+    return [
+      { key: 'nw', x: s.x, y: s.y }, { key: 'n', x: s.x + s.w / 2, y: s.y },
+      { key: 'ne', x: s.x + s.w, y: s.y }, { key: 'e', x: s.x + s.w, y: s.y + s.h / 2 },
+      { key: 'se', x: s.x + s.w, y: s.y + s.h }, { key: 's', x: s.x + s.w / 2, y: s.y + s.h },
+      { key: 'sw', x: s.x, y: s.y + s.h }, { key: 'w', x: s.x, y: s.y + s.h / 2 },
+    ];
+  };
 
   const applyResize = (shape, handle, pos) => {
     const s = { ...shape };
@@ -1255,6 +1291,11 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   };
 
   const hitTest = (s, x, y) => {
+    if (s.type === 'text') {
+      const fs = s.fontSize || 24;
+      const tw = s.text.length * fs * 0.6;
+      return x >= s.x && x <= s.x + tw && y >= s.y - fs && y <= s.y;
+    }
     if (s.type === 'ellipse') {
       const rx = s.w / 2, ry = s.h / 2, cx = s.x + rx, cy = s.y + ry;
       return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
@@ -1264,11 +1305,24 @@ function OcclusionEditor({ deck, noteId, onClose }) {
 
   const getHitHandle = (pos) => {
     if (selected === null) return null;
+    const s = shapes[selected];
+    if (s.type === 'text') return null;
     const hs = Math.max(14, (canvasRef.current?.width || 800) * 0.012);
-    for (const h of getHandlePositions(shapes[selected])) {
+    for (const h of getHandlePositions(s)) {
       if (Math.abs(pos.x - h.x) < hs && Math.abs(pos.y - h.y) < hs) return h.key;
     }
     return null;
+  };
+
+  const computeBBox = (points) => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   };
 
   // ── Canvas render ────────────────────────────────────────────────────────
@@ -1280,13 +1334,39 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     canvas.height = imgEl.naturalHeight;
     ctx.drawImage(imgEl, 0, 0);
 
-    const allShapes = drawing ? [...shapes, { ...drawing, type: tool === 'select' ? 'rect' : tool }] : shapes;
+    const drawingShape = drawing ? { ...drawing, type: (tool === 'select' ? 'rect' : tool) } : null;
+    const allShapes = drawingShape ? [...shapes, drawingShape] : shapes;
+
     allShapes.forEach((s, i) => {
       const isSel = i === selected && !drawing;
+
+      // Text annotation — render as text, not mask
+      if (s.type === 'text') {
+        const fs = s.fontSize || 24;
+        ctx.fillStyle = isSel ? '#1a73e8' : '#e53e3e';
+        ctx.font = `bold ${fs}px sans-serif`;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(s.text, s.x, s.y);
+        if (isSel) {
+          const tw = ctx.measureText(s.text).width;
+          ctx.strokeStyle = '#1a73e8'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+          ctx.strokeRect(s.x - 2, s.y - fs - 2, tw + 4, fs + 6);
+          ctx.setLineDash([]);
+        }
+        return;
+      }
+
       ctx.fillStyle   = isSel ? 'rgba(26,115,232,0.40)' : 'rgba(26,115,232,0.25)';
       ctx.strokeStyle = isSel ? '#1a73e8' : '#1557b0';
       ctx.lineWidth   = isSel ? 3 : 2;
-      if (s.type === 'ellipse') {
+
+      if (s.type === 'freehand' && s.points && s.points.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(s.points[0].x, s.points[0].y);
+        for (let p = 1; p < s.points.length; p++) ctx.lineTo(s.points[p].x, s.points[p].y);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      } else if (s.type === 'ellipse') {
         const rx = Math.abs(s.w) / 2, ry = Math.abs(s.h) / 2;
         ctx.beginPath(); ctx.ellipse(s.x + s.w / 2, s.y + s.h / 2, rx, ry, 0, 0, Math.PI * 2);
         ctx.fill(); ctx.stroke();
@@ -1296,7 +1376,10 @@ function OcclusionEditor({ deck, noteId, onClose }) {
       }
       // Label
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.max(12, Math.min(Math.abs(s.w), Math.abs(s.h)) * 0.3)}px sans-serif`;
+      const labelSize = s.type === 'freehand'
+        ? Math.max(12, Math.min(s.w, s.h) * 0.3)
+        : Math.max(12, Math.min(Math.abs(s.w), Math.abs(s.h)) * 0.3);
+      ctx.font = `bold ${labelSize}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(s.label || `${i + 1}`, s.x + s.w / 2, s.y + s.h / 2);
       // Selection handles
@@ -1309,12 +1392,42 @@ function OcclusionEditor({ deck, noteId, onClose }) {
         });
       }
     });
-  }, [imgEl, shapes, drawing, selected, tool]);
+
+    // Draw live freehand stroke
+    if (freehandPoints && freehandPoints.length > 1) {
+      ctx.strokeStyle = '#1557b0'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(freehandPoints[0].x, freehandPoints[0].y);
+      for (let p = 1; p < freehandPoints.length; p++) ctx.lineTo(freehandPoints[p].x, freehandPoints[p].y);
+      ctx.stroke();
+    }
+  }, [imgEl, shapes, drawing, selected, tool, freehandPoints]);
 
   // ── Mouse / touch handlers ───────────────────────────────────────────────
   const onMouseDown = (e) => {
     if (!imgEl) return;
     const pos = getPos(e);
+
+    if (tool === 'text') {
+      // Open floating text input at click position (relative to container)
+      const canvas = canvasRef.current;
+      const canvasRect = canvas.getBoundingClientRect();
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const scaleX = canvas.width / canvasRect.width;
+      const scaleY = canvas.height / canvasRect.height;
+      const relX = pos.x / scaleX + canvasRect.left - containerRect.left + containerRef.current.scrollLeft;
+      const relY = pos.y / scaleY + canvasRect.top - containerRect.top + containerRef.current.scrollTop;
+      setTextInput({ canvasX: pos.x, canvasY: pos.y, x: relX, y: relY });
+      setTextVal('');
+      return;
+    }
+
+    if (tool === 'freehand') {
+      setSelected(null);
+      setFreehandPoints([pos]);
+      return;
+    }
+
     if (tool === 'select') {
       // Resize handle?
       if (selected !== null) {
@@ -1335,6 +1448,11 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   };
 
   const onMouseMove = (e) => {
+    if (freehandPoints) {
+      const pos = getPos(e);
+      setFreehandPoints(pts => [...pts, pos]);
+      return;
+    }
     const pos = getPos(e);
     if (resizeHandle && selected !== null) {
       setShapes(prev => prev.map((s, i) => i === selected ? applyResize(s, resizeHandle, pos) : s));
@@ -1346,15 +1464,36 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   };
 
   const onMouseUp = () => {
+    // Freehand finish
+    if (freehandPoints) {
+      if (freehandPoints.length > 3) {
+        const bbox = computeBBox(freehandPoints);
+        if (bbox.w > 5 && bbox.h > 5) {
+          const shape = { type: 'freehand', x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h, points: freehandPoints, label: `${shapes.length + 1}` };
+          setShapes(s => [...s, shape]);
+        }
+      }
+      setFreehandPoints(null);
+      return;
+    }
+
     if (resizeHandle) { setResizeHandle(null); return; }
     if (isDragging) { setIsDragging(false); setDragOffset(null); return; }
     if (!drawing) return;
     const { x, y, w, h } = drawing;
     if (Math.abs(w) > 8 && Math.abs(h) > 8) {
       const norm = { x: w < 0 ? x + w : x, y: h < 0 ? y + h : y, w: Math.abs(w), h: Math.abs(h), label: `${shapes.length + 1}`, type: tool };
-      setShapes(s => [...s, norm]); setSelected(shapes.length); setTool('select');
+      setShapes(s => [...s, norm]);
     }
     setDrawing(null);
+  };
+
+  const commitTextInput = () => {
+    if (textInput && textVal.trim()) {
+      const shape = { type: 'text', x: textInput.canvasX, y: textInput.canvasY, text: textVal.trim(), fontSize: 24, label: `T${shapes.length + 1}` };
+      setShapes(s => [...s, shape]);
+    }
+    setTextInput(null); setTextVal('');
   };
 
   const touchHandler = (fn) => (e) => { e.preventDefault(); fn(e); };
@@ -1383,7 +1522,7 @@ function OcclusionEditor({ deck, noteId, onClose }) {
       const method = noteId ? 'PUT' : 'POST';
       const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error();
-      toast.success(`${shapes.length} card${shapes.length > 1 ? 's' : ''} de oclusão ${noteId ? 'atualizados' : 'criados'}.`);
+      toast.success(`${shapes.filter(s => s.type !== 'text').length} card${shapes.filter(s => s.type !== 'text').length > 1 ? 's' : ''} de oclusão ${noteId ? 'atualizados' : 'criados'}.`);
       onClose();
     } catch { toast.error('Erro ao salvar oclusão.'); }
     finally { setSaving(false); }
@@ -1391,7 +1530,10 @@ function OcclusionEditor({ deck, noteId, onClose }) {
 
   const cursorCls = tool === 'select'
     ? (isDragging ? 'cursor-grabbing' : resizeHandle ? 'cursor-nwse-resize' : 'cursor-default')
+    : tool === 'text' ? 'cursor-text'
     : 'cursor-crosshair';
+
+  const maskCount = shapes.filter(s => s.type !== 'text').length;
 
   // ── JSX ──────────────────────────────────────────────────────────────────
   return (
@@ -1411,9 +1553,11 @@ function OcclusionEditor({ deck, noteId, onClose }) {
         {/* Left toolbar */}
         <div className="w-11 bg-white border-r border-border flex flex-col items-center py-2 gap-0.5 shrink-0">
           {[
-            { id: 'select',  icon: '↖',  label: 'Selecionar (V)', shortcut: 'V' },
-            { id: 'rect',    icon: '▭',  label: 'Retângulo (R)',  shortcut: 'R' },
-            { id: 'ellipse', icon: '◯',  label: 'Elipse (E)',     shortcut: 'E' },
+            { id: 'select',   icon: '↖',  label: 'Selecionar (V)' },
+            { id: 'rect',     icon: '▭',  label: 'Retângulo (R)' },
+            { id: 'ellipse',  icon: '◯',  label: 'Elipse (E)' },
+            { id: 'freehand', icon: '✏',  label: 'Desenho livre (D)' },
+            { id: 'text',     icon: 'A',   label: 'Texto (T)' },
           ].map(t => (
             <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-colors ${tool === t.id ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:bg-bg hover:text-text'}`}>
@@ -1430,7 +1574,7 @@ function OcclusionEditor({ deck, noteId, onClose }) {
             className="w-9 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-text-muted hover:bg-bg hover:text-text transition-colors">+</button>
           <button onClick={() => setZoom(z => Math.max(25, z - 25))} title="Zoom −"
             className="w-9 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-text-muted hover:bg-bg hover:text-text transition-colors">−</button>
-          <button onClick={() => setZoom(100)} title="Encaixar"
+          <button onClick={autoFitZoom} title="Encaixar"
             className="w-9 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-text-muted hover:bg-bg hover:text-text transition-colors">FIT</button>
           <span className="text-[9px] text-text-muted mt-1">{zoom}%</span>
           {/* Mobile fields toggle */}
@@ -1441,7 +1585,7 @@ function OcclusionEditor({ deck, noteId, onClose }) {
         </div>
 
         {/* Canvas area */}
-        <div className="flex-1 overflow-auto p-3 flex items-start justify-center bg-[#e8e8e8]">
+        <div ref={containerRef} className="flex-1 overflow-auto p-3 bg-[#e8e8e8] flex justify-center items-start relative">
           {!image ? (
             <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-16 cursor-pointer hover:border-primary hover:bg-white/60 transition-colors w-full max-w-xl mx-auto my-auto bg-white/40">
               <ImageIcon size={40} className="text-text-muted mb-3" />
@@ -1450,12 +1594,27 @@ function OcclusionEditor({ deck, noteId, onClose }) {
               <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
             </label>
           ) : (
-            <div className="inline-block shadow-lg" style={{ width: `${zoom}%`, minWidth: 200 }}>
-              <canvas ref={canvasRef}
-                className={`w-full select-none touch-none ${cursorCls}`}
-                onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-                onTouchStart={touchHandler(onMouseDown)} onTouchMove={touchHandler(onMouseMove)} onTouchEnd={(e) => { e.preventDefault(); onMouseUp(); }} />
-            </div>
+            <canvas ref={canvasRef}
+              className={`select-none touch-none shadow-lg ${cursorCls}`}
+              style={{
+                width: imgEl ? `${imgEl.naturalWidth * zoom / 100}px` : 'auto',
+                maxWidth: zoom <= 100 ? '100%' : 'none'
+              }}
+              onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+              onTouchStart={touchHandler(onMouseDown)} onTouchMove={touchHandler(onMouseMove)} onTouchEnd={(e) => { e.preventDefault(); onMouseUp(); }} />
+          )}
+          {/* Floating text input */}
+          {textInput && (
+            <input
+              autoFocus
+              value={textVal}
+              onChange={e => setTextVal(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitTextInput(); if (e.key === 'Escape') { setTextInput(null); setTextVal(''); } }}
+              onBlur={commitTextInput}
+              className="absolute bg-white border-2 border-primary rounded px-2 py-1 text-sm shadow-lg z-50 outline-none"
+              style={{ left: textInput.x, top: textInput.y, minWidth: 120 }}
+              placeholder="Digite o texto..."
+            />
           )}
         </div>
 
@@ -1486,12 +1645,14 @@ function OcclusionEditor({ deck, noteId, onClose }) {
             {/* Masks list */}
             {shapes.length > 0 && (
               <div>
-                <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Máscaras ({shapes.length})</label>
+                <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Máscaras ({maskCount})</label>
                 <div className="flex flex-col gap-1 max-h-52 overflow-y-auto">
                   {shapes.map((s, i) => (
                     <div key={i} onClick={() => { setSelected(i); setTool('select'); }}
                       className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-pointer text-sm transition-colors ${selected === i ? 'border-primary bg-blue-50' : 'border-border hover:bg-bg'}`}>
-                      <span className={`w-5 h-5 bg-primary text-white text-xs flex items-center justify-center shrink-0 ${s.type === 'ellipse' ? 'rounded-full' : 'rounded-sm'}`}>{i + 1}</span>
+                      <span className={`w-5 h-5 ${s.type === 'text' ? 'bg-red-500' : 'bg-primary'} text-white text-xs flex items-center justify-center shrink-0 ${s.type === 'ellipse' ? 'rounded-full' : 'rounded-sm'}`}>
+                        {s.type === 'text' ? 'T' : i + 1}
+                      </span>
                       {labelEdit === i ? (
                         <input autoFocus value={labelVal} onChange={e => setLabelVal(e.target.value)}
                           onBlur={() => { setShapes(sh => sh.map((x, j) => j === i ? { ...x, label: labelVal || `${i+1}` } : x)); setLabelEdit(null); }}
@@ -1499,7 +1660,7 @@ function OcclusionEditor({ deck, noteId, onClose }) {
                           className="flex-1 text-xs border-b border-primary outline-none bg-transparent" />
                       ) : (
                         <span className="flex-1 truncate text-xs" onDoubleClick={() => { setLabelEdit(i); setLabelVal(s.label || `${i+1}`); }}>
-                          {s.label || `${i + 1}`}
+                          {s.type === 'text' ? `"${s.text}"` : (s.label || `${i + 1}`)}
                         </span>
                       )}
                       <button onClick={e => { e.stopPropagation(); deleteShape(i); }} className="text-text-muted hover:text-red-500 shrink-0"><X size={12} /></button>
@@ -1523,11 +1684,11 @@ function OcclusionEditor({ deck, noteId, onClose }) {
         <div className="flex-1" />
 
         <span className="text-xs font-semibold text-text-muted hidden sm:inline">Add Cards:</span>
-        <button onClick={() => save('hide_all')} disabled={saving || !image || shapes.length === 0}
+        <button onClick={() => save('hide_all')} disabled={saving || !image || maskCount === 0}
           className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors">
           {saving ? '…' : 'Hide All, Guess One'}
         </button>
-        <button onClick={() => save('hide_one')} disabled={saving || !image || shapes.length === 0}
+        <button onClick={() => save('hide_one')} disabled={saving || !image || maskCount === 0}
           className="px-4 py-2 bg-white border-2 border-primary text-primary rounded-lg text-xs font-bold hover:bg-blue-50 disabled:opacity-40 transition-colors">
           Hide One, Guess One
         </button>
@@ -1540,7 +1701,7 @@ function OcclusionEditor({ deck, noteId, onClose }) {
       {/* Help footer */}
       {image && (
         <div className="bg-bg/60 border-t border-border px-4 py-1 text-[10px] text-text-muted text-center shrink-0">
-          <b>V</b> Selecionar · <b>R</b> Retângulo · <b>E</b> Elipse · Arraste para mover · Alças para redimensionar · <kbd className="bg-white border border-border rounded px-0.5">Del</kbd> excluir · <kbd className="bg-white border border-border rounded px-0.5">Esc</kbd> cancelar
+          <b>V</b> Selecionar · <b>R</b> Retângulo · <b>E</b> Elipse · <b>D</b> Desenho livre · <b>T</b> Texto · Arraste para mover · Alças para redimensionar · <kbd className="bg-white border border-border rounded px-0.5">Del</kbd> excluir · <kbd className="bg-white border border-border rounded px-0.5">Esc</kbd> cancelar
         </div>
       )}
     </div>

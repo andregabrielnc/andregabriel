@@ -334,6 +334,7 @@ router.post('/occlusion', async (req, res) => {
     );
     const cardIds = [];
     for (let i = 0; i < shapes.length; i++) {
+      if (shapes[i].type === 'text') continue;
       const label = shapes[i].label || `${i + 1}`;
       const { rows: [card] } = await client.query(
         'INSERT INTO cards (deck_id, front, back, occlusion_note_id, shape_index) VALUES ($1,$2,$3,$4,$5) RETURNING id',
@@ -363,6 +364,7 @@ router.put('/occlusion/:id', async (req, res) => {
     // Remove old cards e recria
     await client.query('DELETE FROM cards WHERE occlusion_note_id=$1', [req.params.id]);
     for (let i = 0; i < shapes.length; i++) {
+      if (shapes[i].type === 'text') continue;
       const label = shapes[i].label || `${i + 1}`;
       await client.query(
         'INSERT INTO cards (deck_id, front, back, occlusion_note_id, shape_index) VALUES ($1,$2,$3,$4,$5)',
