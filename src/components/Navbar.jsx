@@ -25,17 +25,9 @@ const Navbar = ({ page, setPage, goAluno }) => {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const handleGoAluno = async () => {
+  const handleGoAluno = () => {
     setMobileOpen(false);
-    try {
-      const res = await fetch('/auth/me', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) { goAluno(); return; }
-      }
-    } catch (_) {}
-    // Não autenticado — inicia fluxo OAuth
-    window.location.href = '/auth/google';
+    goAluno();
   };
 
   const goHome = () => { setPage('home'); setMobileOpen(false); };

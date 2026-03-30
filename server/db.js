@@ -89,6 +89,16 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS users (
+      id         SERIAL PRIMARY KEY,
+      name       TEXT NOT NULL,
+      email      TEXT NOT NULL UNIQUE,
+      phone      TEXT NOT NULL DEFAULT '',
+      google_id  TEXT UNIQUE,
+      picture    TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS session (
       sid    VARCHAR NOT NULL COLLATE "default",
       sess   JSON    NOT NULL,

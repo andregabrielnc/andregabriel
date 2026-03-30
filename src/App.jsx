@@ -14,6 +14,7 @@ import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import CookieBanner from './components/CookieBanner';
 import AreaDoAluno from './pages/AreaDoAluno';
+import Login from './pages/Login';
 
 function App() {
   const [page, setPage]           = useState('home');
@@ -23,9 +24,18 @@ function App() {
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search);
     const wantsAluno = params.get('aluno') === '1';
+    const loginError = params.get('login_error');
 
-    if (wantsAluno) {
+    if (wantsAluno || loginError) {
       window.history.replaceState({}, '', '/');
+    }
+
+    if (loginError) {
+      // Vai para a página de login já com o erro na URL (o componente Login lê o param)
+      window.history.pushState({}, '', `/?login_error=${loginError}`);
+      setAuthChecked(true);
+      setPage('login');
+      return;
     }
 
     fetch('/auth/me', { credentials: 'include' })
@@ -46,6 +56,8 @@ function App() {
     setPage('aluno');
   };
 
+  const goLogin = () => setPage('login');
+
   const exitAluno = () => {
     sessionStorage.removeItem('lastPage');
     setUser(null);
@@ -63,9 +75,21 @@ function App() {
     );
   }
 
+  if (page === 'login') {
+    return (
+      <>
+        <Login
+          onBack={() => setPage('home')}
+          onSuccess={(u) => { setUser(u); goAluno(); }}
+        />
+        <Toaster position="bottom-right" richColors closeButton />
+      </>
+    );
+  }
+
   return (
     <>
-      <Navbar page={page} setPage={setPage} goAluno={goAluno} />
+      <Navbar page={page} setPage={setPage} goAluno={goLogin} />
       <main>
         <Hero />
         <Blog />
