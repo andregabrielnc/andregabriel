@@ -61,13 +61,12 @@ function App() {
     const wantsAluno = params.get('aluno') === '1';
     const loginError = params.get('login_error');
 
-    if (wantsAluno || loginError) {
+    if (wantsAluno) {
       window.history.replaceState({}, '', '/');
     }
 
     if (loginError) {
-      // Vai para a página de login já com o erro na URL (o componente Login lê o param)
-      window.history.pushState({}, '', `/?login_error=${loginError}`);
+      // Keep login_error in URL so Login component can read it, then clean up
       setAuthChecked(true);
       setPage('login');
       return;
@@ -82,7 +81,7 @@ function App() {
           if (wantsAluno) {
             // Google OAuth redirect back → show welcome modal then go to aluno
             setWelcomeUser(data.user);
-            setPage('login'); // render Login shell so modal has correct bg
+            setPage('welcome');
           } else if (savedPage === 'aluno') {
             setPage('aluno');
           }
@@ -116,16 +115,23 @@ function App() {
     );
   }
 
+  if (page === 'welcome' && welcomeUser) {
+    return (
+      <>
+        <div className="min-h-screen bg-bg" />
+        <WelcomeModal user={welcomeUser} onClose={() => { setWelcomeUser(null); goAluno(); }} />
+        <Toaster position="bottom-right" richColors closeButton />
+      </>
+    );
+  }
+
   if (page === 'login') {
     return (
       <>
         <Login
           onBack={() => setPage('home')}
-          onSuccess={(u) => { setUser(u); setWelcomeUser(u); }}
+          onSuccess={(u) => { setUser(u); setWelcomeUser(u); setPage('welcome'); }}
         />
-        {welcomeUser && (
-          <WelcomeModal user={welcomeUser} onClose={() => { setWelcomeUser(null); goAluno(); }} />
-        )}
         <Toaster position="bottom-right" richColors closeButton />
       </>
     );

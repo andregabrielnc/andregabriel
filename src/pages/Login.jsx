@@ -269,7 +269,7 @@ export default function Login({ onBack, onSuccess }) {
               className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               <GoogleIcon />
-              {regLoading && !regError ? 'Aguarde...' : 'Cadastrar com Google'}
+              {regLoading ? 'Aguarde...' : 'Cadastrar com Google'}
             </button>
 
             <Divider label="ou cadastre com e-mail" />

@@ -808,7 +808,10 @@ function OcclusionCard({ card, flipped }) {
 
   useEffect(() => {
     if (!card.occlusion_note_id) return;
-    fetch(`${API}/occlusion/${card.occlusion_note_id}`).then(r => r.json()).then(setNote);
+    fetch(`${API}/occlusion/${card.occlusion_note_id}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(setNote)
+      .catch(() => setNote({ image_data: '', shapes: [], mode: 'hide_all', header: '', footer: '', remarks: '', sources: '' }));
   }, [card.occlusion_note_id]);
 
   if (!note) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
@@ -1253,7 +1256,7 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selected]);
+  }, [selected, tool]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const getHandlePositions = (s) => {
@@ -1409,14 +1412,15 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     const pos = getPos(e);
 
     if (tool === 'text') {
-      // Open floating text input at click position (relative to container)
+      // Position floating input relative to canvas display position inside container
       const canvas = canvasRef.current;
       const canvasRect = canvas.getBoundingClientRect();
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const scaleX = canvas.width / canvasRect.width;
-      const scaleY = canvas.height / canvasRect.height;
-      const relX = pos.x / scaleX + canvasRect.left - containerRect.left + containerRef.current.scrollLeft;
-      const relY = pos.y / scaleY + canvasRect.top - containerRect.top + containerRef.current.scrollTop;
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const pxX = (pos.x / canvas.width) * canvasRect.width;
+      const pxY = (pos.y / canvas.height) * canvasRect.height;
+      const relX = canvasRect.left - containerRect.left + container.scrollLeft + pxX;
+      const relY = canvasRect.top - containerRect.top + container.scrollTop + pxY;
       setTextInput({ canvasX: pos.x, canvasY: pos.y, x: relX, y: relY });
       setTextVal('');
       return;
@@ -1514,7 +1518,9 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   };
 
   const save = async (mode) => {
-    if (!image || shapes.length === 0) return;
+    if (!image) { toast.error('Carregue uma imagem primeiro.'); return; }
+    const masks = shapes.filter(s => s.type !== 'text');
+    if (masks.length === 0) { toast.error('Crie ao menos uma máscara antes de salvar.'); return; }
     setSaving(true);
     try {
       const body = { deck_id: deck.id, image_data: image, shapes, mode, header, footer, remarks, sources };
@@ -1729,8 +1735,9 @@ function ClozeEditor({ value, onChange }) {
   const preview = value.replace(/\{\{c::([\s\S]*?)\}\}/g,
     (_, w) => `<span style="display:inline-block;background:#1d4ed8;color:white;padding:0 8px;border-radius:4px;font-size:0.85em">[...]</span>`
   );
+  const esc = (s) => s.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
   const previewBack = value.replace(/\{\{c::([\s\S]*?)\}\}/g,
-    (_, w) => `<mark style="background:#dbeafe;color:#1d4ed8;padding:0 6px;border-radius:4px;font-weight:600">${w}</mark>`
+    (_, w) => `<mark style="background:#dbeafe;color:#1d4ed8;padding:0 6px;border-radius:4px;font-weight:600">${esc(w)}</mark>`
   );
 
   return (
@@ -1956,9 +1963,13 @@ function CardEditor({ deck, onClose, plugins }) {
 
   const save = async () => {
     const front = cardType === 'cloze' ? clozeText : form.front;
-    const back  = cardType === 'cloze' ? form.back  : form.back;
+    const back  = form.back;
     if (!front.trim()) return;
     if (cardType === 'basic' && !back.trim()) return;
+    if (cardType === 'cloze' && !clozeText.includes('{{c::')) {
+      toast.error('Selecione ao menos uma palavra para ocultar.');
+      return;
+    }
     if (editing === 'new') {
       const payload = cardType === 'cloze'
         ? { deck_id: deck.id, front: clozeText, back: form.back, hint: form.hint }
