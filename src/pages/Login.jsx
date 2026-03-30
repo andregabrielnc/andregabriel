@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft } from 'lucide-react';
+
+const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 function GoogleIcon() {
   return (
@@ -33,14 +35,40 @@ function PhoneInput({ value, onChange }) {
   );
 }
 
-export default function Login({ onBack }) {
-  const [regName,  setRegName]  = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regError, setRegError] = useState('');
-  const [regLoading, setRegLoading] = useState(false);
+// Carrega o script do reCAPTCHA v3 e retorna um executor
+function useRecaptcha() {
+  const [ready, setReady] = useState(false);
 
+  useEffect(() => {
+    if (!SITE_KEY) { setReady(true); return; }
+    if (window.grecaptcha) { setReady(true); return; }
+
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`;
+    script.async = true;
+    script.onload = () => window.grecaptcha.ready(() => setReady(true));
+    document.head.appendChild(script);
+    return () => document.head.removeChild(script);
+  }, []);
+
+  const execute = useCallback(async (action) => {
+    if (!SITE_KEY || !window.grecaptcha) return null;
+    return window.grecaptcha.execute(SITE_KEY, { action });
+  }, []);
+
+  return { ready, execute };
+}
+
+export default function Login({ onBack }) {
+  const [regName,    setRegName]    = useState('');
+  const [regEmail,   setRegEmail]   = useState('');
+  const [regPhone,   setRegPhone]   = useState('');
+  const [regError,   setRegError]   = useState('');
+  const [regLoading, setRegLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const { ready, execute } = useRecaptcha();
 
   // Lê erros vindos do callback OAuth na URL
   useEffect(() => {
@@ -48,6 +76,7 @@ export default function Login({ onBack }) {
     const err = params.get('login_error');
     if (err === 'not_registered') setLoginError('Este e-mail não está cadastrado. Crie uma conta primeiro.');
     if (err === 'email_mismatch') setRegError('O e-mail do Google deve ser o mesmo digitado no cadastro.');
+    if (err === 'recaptcha')      setLoginError('Verificação de segurança falhou. Tente novamente.');
     if (err === 'error')          setLoginError('Ocorreu um erro. Tente novamente.');
     if (err) window.history.replaceState({}, '', '/');
   }, []);
@@ -56,18 +85,19 @@ export default function Login({ onBack }) {
     e.preventDefault();
     setRegError('');
 
-    if (!regName.trim())        return setRegError('Informe seu nome.');
-    if (!regEmail.trim())       return setRegError('Informe seu e-mail.');
+    if (!regName.trim())               return setRegError('Informe seu nome.');
+    if (!regEmail.trim())              return setRegError('Informe seu e-mail.');
     if (!/\S+@\S+\.\S+/.test(regEmail)) return setRegError('E-mail inválido.');
-    if (regPhone.length < 10)   return setRegError('Celular inválido.');
+    if (regPhone.length < 10)          return setRegError('Celular inválido (inclua o DDD).');
 
     setRegLoading(true);
     try {
+      const recaptchaToken = await execute('register');
       const res = await fetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name: regName, email: regEmail, phone: regPhone }),
+        body: JSON.stringify({ name: regName, email: regEmail, phone: regPhone, recaptchaToken }),
       });
       const data = await res.json();
       if (!res.ok) return setRegError(data.error || 'Erro ao cadastrar.');
@@ -79,8 +109,16 @@ export default function Login({ onBack }) {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = '/auth/google';
+  const handleGoogleLogin = async () => {
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      const token = await execute('login');
+      window.location.href = `/auth/google${token ? `?recaptcha=${token}` : ''}`;
+    } catch {
+      setLoginError('Erro de segurança. Tente novamente.');
+      setLoginLoading(false);
+    }
   };
 
   return (
@@ -106,7 +144,6 @@ export default function Login({ onBack }) {
 
           {/* ── Painel Cadastro ── */}
           <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col gap-5">
-            {/* Ícone */}
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-full bg-bg border border-border flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -114,26 +151,11 @@ export default function Login({ onBack }) {
                   <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-text font-heading leading-tight">
-                  Cadastre-se para criar sua conta<br />e iniciar seus estudos!
-                </h2>
-              </div>
+              <h2 className="text-lg font-bold text-text font-heading leading-tight">
+                Cadastre-se para criar sua conta<br />e iniciar seus estudos!
+              </h2>
             </div>
 
-            {/* Botão Google Cadastro */}
-            <button
-              type="button"
-              onClick={handleRegister}
-              disabled={regLoading}
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors"
-              style={{ display: 'none' }}
-            >
-              <GoogleIcon />
-              Cadastrar com Google
-            </button>
-
-            {/* Formulário */}
             <form onSubmit={handleRegister} className="flex flex-col gap-4">
               <div>
                 <label className="block text-sm font-medium text-text mb-1">Nome</label>
@@ -152,7 +174,7 @@ export default function Login({ onBack }) {
                   type="email"
                   value={regEmail}
                   onChange={e => setRegEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  placeholder="seu@gmail.com"
                   className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
                 />
               </div>
@@ -175,7 +197,7 @@ export default function Login({ onBack }) {
 
               <button
                 type="submit"
-                disabled={regLoading}
+                disabled={regLoading || !ready}
                 className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-white border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors disabled:opacity-60"
               >
                 <GoogleIcon />
@@ -186,19 +208,17 @@ export default function Login({ onBack }) {
 
           {/* ── Painel Login ── */}
           <div className="bg-white rounded-2xl border border-border p-8 shadow-sm flex flex-col gap-5">
-            {/* Ícone */}
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-full bg-bg border border-border flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
-                  <path d="M9 11l-4 4 4 4"/>
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                  <polyline points="10 17 15 12 10 7"/>
+                  <line x1="15" y1="12" x2="3" y2="12"/>
                 </svg>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-text font-heading leading-tight">
-                  Entre na sua conta para<br />continuar seus estudos!
-                </h2>
-              </div>
+              <h2 className="text-lg font-bold text-text font-heading leading-tight">
+                Entre na sua conta para<br />continuar seus estudos!
+              </h2>
             </div>
 
             <div className="flex flex-col gap-4 mt-2">
@@ -210,16 +230,26 @@ export default function Login({ onBack }) {
 
               <button
                 onClick={handleGoogleLogin}
-                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors"
+                disabled={loginLoading || !ready}
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors disabled:opacity-60"
               >
                 <GoogleIcon />
-                Entrar com Google
+                {loginLoading ? 'Aguarde...' : 'Entrar com Google'}
               </button>
 
               <p className="text-xs text-center text-text-muted">
                 Apenas e-mails cadastrados podem entrar.<br />
                 Se ainda não tem conta, cadastre-se ao lado.
               </p>
+
+              {SITE_KEY && (
+                <p className="text-[10px] text-center text-text-dim">
+                  Protegido por reCAPTCHA v3 —{' '}
+                  <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline">Privacidade</a>
+                  {' & '}
+                  <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer" className="underline">Termos</a>
+                </p>
+              )}
             </div>
           </div>
 

@@ -6,6 +6,9 @@ ENV NODE_ENV=development
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# VITE_ vars must be available at build time (inlined by Vite)
+ARG VITE_RECAPTCHA_SITE_KEY
+ENV VITE_RECAPTCHA_SITE_KEY=$VITE_RECAPTCHA_SITE_KEY
 RUN npm run build
 
 # ─── Stage 2: Production image ────────────────────────────────────────────────

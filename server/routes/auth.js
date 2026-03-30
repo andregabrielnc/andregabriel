@@ -3,6 +3,16 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import pool from '../db.js';
 
+async function verifyRecaptcha(token, action) {
+  if (!process.env.RECAPTCHA_SECRET) return true; // skip in dev se não configurado
+  const res = await fetch(
+    `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET}&response=${token}`,
+    { method: 'POST' }
+  );
+  const data = await res.json();
+  return data.success && data.score >= 0.5 && data.action === action;
+}
+
 // Estratégia única — comportamento definido por req.session.authAction
 passport.use(new GoogleStrategy(
   {
@@ -58,11 +68,14 @@ const router = Router();
 
 // ── CADASTRO ──────────────────────────────────────────────────────────────────
 
-router.post('/register', (req, res) => {
-  const { name, email, phone } = req.body;
+router.post('/register', async (req, res) => {
+  const { name, email, phone, recaptchaToken } = req.body;
   if (!name || !email || !phone) return res.status(400).json({ error: 'Preencha todos os campos.' });
   const phoneClean = phone.replace(/\D/g, '');
   if (phoneClean.length < 10) return res.status(400).json({ error: 'Celular inválido.' });
+
+  const ok = await verifyRecaptcha(recaptchaToken, 'register').catch(() => false);
+  if (!ok) return res.status(400).json({ error: 'Verificação de segurança falhou. Tente novamente.' });
 
   req.session.authAction = 'register';
   req.session.pendingRegistration = { name: name.trim(), email: email.trim().toLowerCase(), phone: phoneClean };
@@ -71,8 +84,14 @@ router.post('/register', (req, res) => {
 
 // ── INICIA OAUTH ──────────────────────────────────────────────────────────────
 
-router.get('/google', (req, res, next) => {
-  if (!req.session.authAction) req.session.authAction = 'login';
+router.get('/google', async (req, res, next) => {
+  // Para login direto (sem register), valida o token reCAPTCHA que vem na query
+  if (!req.session.authAction) {
+    req.session.authAction = 'login';
+    const token = req.query.recaptcha;
+    const ok = await verifyRecaptcha(token, 'login').catch(() => false);
+    if (!ok) return res.redirect(`${process.env.FRONTEND_URL}/?login_error=recaptcha`);
+  }
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
