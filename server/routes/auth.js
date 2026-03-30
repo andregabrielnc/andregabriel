@@ -32,7 +32,10 @@ router.get('/google',
 router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect(`${process.env.FRONTEND_URL}/?aluno=1`);
+    // Garante que a sessão seja persistida no banco ANTES do redirect
+    req.session.save(() => {
+      res.redirect(`${process.env.FRONTEND_URL}/?aluno=1`);
+    });
   }
 );
 
