@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import bcrypt from 'bcryptjs';
 import pool from '../db.js';
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 async function verifyRecaptcha(token, action) {
-  if (!process.env.RECAPTCHA_SECRET) return true; // skip in dev se não configurado
+  if (!process.env.RECAPTCHA_SECRET) return true; // skip em dev
+  if (!token) return false;
   const res = await fetch(
     `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET}&response=${token}`,
     { method: 'POST' }
@@ -13,48 +17,35 @@ async function verifyRecaptcha(token, action) {
   return data.success && data.score >= 0.5 && data.action === action;
 }
 
-// Estratégia única — comportamento definido por req.session.authAction
+function userPayload(u) {
+  return { id: u.id, name: u.name, email: u.email, phone: u.phone, picture: u.picture, role: u.role };
+}
+
+// ── Google Strategy ───────────────────────────────────────────────────────────
+// Auto-upsert: cria conta se e-mail não existir, atualiza google_id/picture se existir.
 passport.use(new GoogleStrategy(
   {
-    clientID:          process.env.GOOGLE_CLIENT_ID,
-    clientSecret:      process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL:       process.env.GOOGLE_CALLBACK_URL,
-    passReqToCallback: true,
+    clientID:     process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL:  process.env.GOOGLE_CALLBACK_URL,
   },
-  async (req, _accessToken, _refreshToken, profile, done) => {
+  async (_accessToken, _refreshToken, profile, done) => {
     const email    = profile.emails?.[0]?.value;
     const picture  = profile.photos?.[0]?.value;
     const googleId = profile.id;
-    const action   = req.session.authAction || 'login';
+    const name     = profile.displayName;
 
     try {
-      if (action === 'register') {
-        const pending = req.session.pendingRegistration;
-        if (!pending) return done(null, false, { message: 'no_pending' });
-        if (email !== pending.email) return done(null, false, { message: 'email_mismatch' });
+      const { rows } = await pool.query(`
+        INSERT INTO users (name, email, google_id, picture)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (email) DO UPDATE
+          SET google_id = EXCLUDED.google_id,
+              picture   = EXCLUDED.picture
+        RETURNING *
+      `, [name, email, googleId, picture]);
 
-        const { rows } = await pool.query(`
-          INSERT INTO users (name, email, phone, google_id, picture)
-          VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (email) DO UPDATE
-            SET google_id = EXCLUDED.google_id,
-                picture   = EXCLUDED.picture
-          RETURNING *
-        `, [pending.name, email, pending.phone, googleId, picture]);
-
-        delete req.session.pendingRegistration;
-        delete req.session.authAction;
-        const u = rows[0];
-        return done(null, { id: u.id, name: u.name, email: u.email, phone: u.phone, picture });
-
-      } else {
-        const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        if (!rows[0]) return done(null, false, { message: 'not_registered' });
-
-        await pool.query('UPDATE users SET google_id=$1, picture=$2 WHERE email=$3', [googleId, picture, email]);
-        const u = rows[0];
-        return done(null, { id: u.id, name: u.name, email: u.email, phone: u.phone, picture });
-      }
+      return done(null, userPayload(rows[0]));
     } catch (e) {
       return done(e);
     }
@@ -66,36 +57,86 @@ passport.deserializeUser((user, done) => done(null, user));
 
 const router = Router();
 
-// ── CADASTRO ──────────────────────────────────────────────────────────────────
+// ── CADASTRO MANUAL (email + senha) ──────────────────────────────────────────
 
 router.post('/register', async (req, res) => {
-  const { name, email, phone, recaptchaToken } = req.body;
-  if (!name || !email || !phone) return res.status(400).json({ error: 'Preencha todos os campos.' });
-  const phoneClean = phone.replace(/\D/g, '');
-  if (phoneClean.length < 10) return res.status(400).json({ error: 'Celular inválido.' });
+  const { name, email, phone, password, recaptchaToken } = req.body;
+
+  if (!name?.trim() || !email?.trim() || !phone || !password)
+    return res.status(400).json({ error: 'Preencha todos os campos.' });
+
+  const phoneClean = String(phone).replace(/\D/g, '');
+  if (phoneClean.length < 10)
+    return res.status(400).json({ error: 'Celular inválido (inclua o DDD).' });
+
+  if (password.length < 6)
+    return res.status(400).json({ error: 'Senha deve ter ao menos 6 caracteres.' });
+  if (!/[a-zA-Z]/.test(password))
+    return res.status(400).json({ error: 'Senha deve conter ao menos 1 letra.' });
+  if (!/[0-9]/.test(password))
+    return res.status(400).json({ error: 'Senha deve conter ao menos 1 número.' });
 
   const ok = await verifyRecaptcha(recaptchaToken, 'register').catch(() => false);
   if (!ok) return res.status(400).json({ error: 'Verificação de segurança falhou. Tente novamente.' });
 
-  req.session.authAction = 'register';
-  req.session.pendingRegistration = { name: name.trim(), email: email.trim().toLowerCase(), phone: phoneClean };
-  req.session.save(() => res.json({ ok: true, redirect: '/auth/google' }));
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    const { rows } = await pool.query(`
+      INSERT INTO users (name, email, phone, password_hash)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [name.trim(), email.trim().toLowerCase(), phoneClean, passwordHash]);
+
+    const user = userPayload(rows[0]);
+    req.logIn(user, (err) => {
+      if (err) return res.status(500).json({ error: 'Erro ao autenticar.' });
+      req.session.save(() => res.json({ ok: true, user }));
+    });
+  } catch (e) {
+    if (e.code === '23505') return res.status(400).json({ error: 'E-mail já cadastrado. Tente entrar.' });
+    return res.status(500).json({ error: 'Erro interno. Tente novamente.' });
+  }
 });
 
-// ── INICIA OAUTH ──────────────────────────────────────────────────────────────
+// ── LOGIN COM EMAIL/SENHA ─────────────────────────────────────────────────────
+
+router.post('/login', async (req, res) => {
+  const { email, password, recaptchaToken } = req.body;
+
+  if (!email?.trim() || !password)
+    return res.status(400).json({ error: 'Preencha e-mail e senha.' });
+
+  const ok = await verifyRecaptcha(recaptchaToken, 'login').catch(() => false);
+  if (!ok) return res.status(400).json({ error: 'Verificação de segurança falhou. Tente novamente.' });
+
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    const u = rows[0];
+
+    if (!u) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    if (!u.password_hash) return res.status(401).json({ error: 'Esta conta usa login com Google. Clique em "Entrar com Google".' });
+
+    const match = await bcrypt.compare(password, u.password_hash);
+    if (!match) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+
+    const user = userPayload(u);
+    req.logIn(user, (err) => {
+      if (err) return res.status(500).json({ error: 'Erro ao autenticar.' });
+      req.session.save(() => res.json({ ok: true, user }));
+    });
+  } catch {
+    return res.status(500).json({ error: 'Erro interno. Tente novamente.' });
+  }
+});
+
+// ── GOOGLE OAuth ──────────────────────────────────────────────────────────────
 
 router.get('/google', async (req, res, next) => {
-  // Para login direto (sem register), valida o token reCAPTCHA que vem na query
-  if (!req.session.authAction) {
-    req.session.authAction = 'login';
-    const token = req.query.recaptcha;
-    const ok = await verifyRecaptcha(token, 'login').catch(() => false);
-    if (!ok) return res.redirect(`${process.env.FRONTEND_URL}/?login_error=recaptcha`);
-  }
+  const token = req.query.recaptcha;
+  const ok = await verifyRecaptcha(token, 'login').catch(() => false);
+  if (!ok) return res.redirect(`${process.env.FRONTEND_URL}/?login_error=recaptcha`);
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
-
-// ── CALLBACK ──────────────────────────────────────────────────────────────────
 
 router.get('/google/callback', (req, res, next) => {
   passport.authenticate('google', (err, user, info) => {

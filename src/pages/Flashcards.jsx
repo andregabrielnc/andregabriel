@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Layers, Plus, ChevronRight, X, Image as ImageIcon,
+  Layers, Plus, ChevronRight, X, Image as ImageIcon, Search,
   BookOpen, Edit2, Trash2, ChevronLeft, Settings,
   Calendar, TrendingUp, Brain, Award, AlertCircle,
   Bold, Italic, Strikethrough, Highlighter, Type, Palette, Underline as UnderlineIcon,
@@ -1414,6 +1414,149 @@ function OcclusionEditor({ deck, noteId, onClose }) {
   );
 }
 
+// ─── Card Table ───────────────────────────────────────────────────────────────
+function CardTable({ cards, loading, onEdit, onDelete }) {
+  const [search, setSearch]   = useState('');
+  const [page, setPage]       = useState(1);
+  const LIMIT = 10;
+
+  const stripHtml = (html) => {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    return div.textContent || '';
+  };
+
+  const filtered = cards.filter(c => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return stripHtml(c.front).toLowerCase().includes(q) || stripHtml(c.back).toLowerCase().includes(q);
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
+  const safePage   = Math.min(page, totalPages);
+  const slice      = filtered.slice((safePage - 1) * LIMIT, safePage * LIMIT);
+
+  // Reset to page 1 on search change
+  useEffect(() => { setPage(1); }, [search]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar cards..."
+          className="w-full pl-9 pr-8 py-2 rounded-lg border border-border text-sm text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text">
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-border overflow-hidden">
+        {cards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-muted">
+            <BookOpen size={40} className="opacity-30" />
+            <p className="text-sm">Nenhum card ainda. Crie o primeiro!</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-2 text-text-muted">
+            <Search size={32} className="opacity-30" />
+            <p className="text-sm">Nenhum card encontrado para "{search}".</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-bg border-b border-border">
+                    <th className="text-left px-4 py-3 font-semibold text-text-muted w-10">#</th>
+                    <th className="text-left px-4 py-3 font-semibold text-text-muted">Frente</th>
+                    <th className="text-left px-4 py-3 font-semibold text-text-muted hidden md:table-cell">Verso</th>
+                    <th className="text-right px-4 py-3 font-semibold text-text-muted w-20">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {slice.map((c, i) => (
+                    <tr key={c.id} className={`border-b border-border last:border-0 hover:bg-bg/60 transition-colors ${i % 2 === 1 ? 'bg-bg/30' : ''}`}>
+                      <td className="px-4 py-3 text-text-muted font-mono text-xs">
+                        {(safePage - 1) * LIMIT + i + 1}
+                      </td>
+                      <td className="px-4 py-3 max-w-[220px]">
+                        <p className="text-text font-medium truncate">{stripHtml(c.front) || '—'}</p>
+                      </td>
+                      <td className="px-4 py-3 max-w-[220px] hidden md:table-cell">
+                        <p className="text-text-muted truncate">{stripHtml(c.back) || '—'}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            onClick={() => onEdit(c)}
+                            className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => onDelete(c)}
+                            className="p-1.5 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Remover"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-bg/40">
+                <span className="text-xs text-text-muted">
+                  {filtered.length} card{filtered.length !== 1 ? 's' : ''} — página {safePage} de {totalPages}
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={safePage === 1}
+                    className="p-1.5 rounded-lg border border-border text-text-muted hover:bg-bg disabled:opacity-40 transition-colors"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={safePage === totalPages}
+                    className="p-1.5 rounded-lg border border-border text-text-muted hover:bg-bg disabled:opacity-40 transition-colors"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Card Editor ──────────────────────────────────────────────────────────────
 function CardEditor({ deck, onClose, plugins }) {
   const [cards, setCards] = useState([]);
@@ -1550,32 +1693,12 @@ function CardEditor({ deck, onClose, plugins }) {
         )}
       </AnimatePresence>
 
-      {loading ? (
-        <div className="flex justify-center py-12"><div className="w-7 h-7 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
-      ) : cards.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-muted">
-          <BookOpen size={40} className="opacity-30" />
-          <p>Nenhum card ainda. Crie o primeiro!</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {cards.map((c, i) => (
-            <div key={c.id} className="bg-white border border-border rounded-xl p-4 flex items-start gap-4">
-              <span className="text-xs text-text-muted font-mono mt-0.5 w-6 shrink-0">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-text line-clamp-1 prose prose-sm"
-                  dangerouslySetInnerHTML={{ __html: c.front }} />
-                <div className="text-xs text-text-muted line-clamp-1 prose prose-sm mt-0.5"
-                  dangerouslySetInnerHTML={{ __html: c.back }} />
-              </div>
-              <div className="flex gap-1 shrink-0">
-                <button onClick={() => openEdit(c)} className="p-1.5 text-text-muted hover:text-primary hover:bg-bg rounded-lg transition-colors"><Edit2 size={14} /></button>
-                <button onClick={() => setDeletingCard(c)} className="p-1.5 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <CardTable
+        cards={cards}
+        loading={loading}
+        onEdit={openEdit}
+        onDelete={c => setDeletingCard(c)}
+      />
     </div>
   );
 }
