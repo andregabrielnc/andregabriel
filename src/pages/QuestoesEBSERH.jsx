@@ -598,16 +598,14 @@ const QuestoesEBSERH = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+    <div className="bg-bg min-h-full">
+      <div className="px-4 sm:px-6 py-6">
 
         {/* Breadcrumb */}
         <nav className="text-xs text-text-muted mb-4 flex items-center gap-1.5">
-          <span className="text-primary hover:underline cursor-pointer">Home</span>
+          <span className="text-primary">Área do Aluno</span>
           <span>/</span>
-          <span className="text-primary hover:underline cursor-pointer">Concursos Públicos</span>
-          <span>/</span>
-          <span>Questões</span>
+          <span>Questões EBSERH</span>
         </nav>
 
         {/* Filter toggle when closed */}

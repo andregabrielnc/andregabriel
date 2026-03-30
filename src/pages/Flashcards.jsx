@@ -960,7 +960,7 @@ function StudyMode({ deck, onExit }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full p-4 gap-4">
+    <div className="flex-1 flex flex-col w-full p-4 gap-4">
 
       {/* Modal de edição inline */}
       <AnimatePresence>
@@ -1465,7 +1465,7 @@ function CardEditor({ deck, onClose, plugins }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-4 gap-4">
+    <div className="flex-1 flex flex-col w-full p-4 gap-4">
 
       {/* Modal de confirmar exclusão de card */}
       <AnimatePresence>
@@ -1789,7 +1789,7 @@ export default function Flashcards() {
   );
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-bg">
+    <div className="bg-bg min-h-full">
       <AnimatePresence>
         {(showDeckModal || editingDeck) && (
           <DeckModal deck={editingDeck} allDecks={decks.filter(d => d.id !== editingDeck?.id)} onSave={handleDeckSaved}
@@ -1807,7 +1807,7 @@ export default function Flashcards() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <div className="px-4 sm:px-6 py-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
