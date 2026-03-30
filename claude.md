@@ -1,79 +1,39 @@
-# Deploy do Portfolio
+# CLAUDE.md
 
-Este projeto é um portfólio React construído com Vite. Abaixo estão as instruções para fazer o deploy da aplicação.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Pré-requisitos
-- Node.js instalado
-- Conta no GitHub (já configurado)
-- Conta em uma plataforma de deploy (Vercel, Netlify, etc.)
+## Commands
 
-## Build Local
-Para testar o build localmente:
 ```bash
-npm run build
-npm run preview
+npm run dev       # Start dev server at http://localhost:5173
+npm run build     # Production build → dist/
+npm run preview   # Preview production build locally
+npm run lint      # Run ESLint
 ```
 
-## Opções de Deploy
+No test suite is configured.
 
-### 1. Vercel (Recomendado)
-1. Acesse [vercel.com](https://vercel.com) e faça login.
-2. Clique em "New Project".
-3. Conecte seu repositório GitHub (`andregabrielnc/andregabriel`).
-4. Configure:
-   - Framework Preset: Vite
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-5. Clique em "Deploy". O deploy será automático em cada push.
+## Architecture
 
-### 2. Netlify
-1. Acesse [netlify.com](https://netlify.com) e faça login.
-2. Clique em "Sites" > "Deploy manually" ou conecte o GitHub.
-3. Para deploy manual:
-   - Execute `npm run build` localmente.
-   - Arraste a pasta `dist` para o Netlify.
-4. Para deploy automático:
-   - Conecte o repositório GitHub.
-   - Build settings: `npm run build`, publish directory: `dist`.
+Single-page landing site built with React 19 + Vite 7. No routing — all sections render in sequence inside `App.jsx`.
 
-### 3. GitHub Pages
-1. No repositório GitHub, vá para "Settings" > "Pages".
-2. Source: "GitHub Actions".
-3. Crie um workflow em `.github/workflows/deploy.yml`:
-   ```yaml
-   name: Deploy to GitHub Pages
+**Component flow** (`src/App.jsx`):
+Navbar → Hero → Interview → About → Concursos → HowItHelps → Discursivas → Experience → Testimonials → FAQ → Contact → Footer
 
-   on:
-     push:
-       branches: [ main ]
+Each section lives as its own file under `src/components/`. `WhatsAppButton` is a floating UI element not included in the main flow directly.
 
-   jobs:
-     build-and-deploy:
-       runs-on: ubuntu-latest
-       steps:
-         - name: Checkout
-           uses: actions/checkout@v4
+**Styling**: Tailwind CSS v4 via `@tailwindcss/vite` plugin. Design tokens (colors, fonts) are defined in the `@theme` block at the top of `src/index.css` — this is the single source of truth for the palette and custom variables. No `tailwind.config.js` file exists.
 
-         - name: Setup Node
-           uses: actions/setup-node@v4
-           with:
-             node-version: 18
+**Animations**: Framer Motion is used for scroll/entrance animations across components.
 
-         - name: Install dependencies
-           run: npm ci
+**Icons**: `lucide-react`.
 
-         - name: Build
-           run: npm run build
+**Static assets**: Images live in `public/` and are referenced with absolute paths (e.g., `/ebserh.png`).
 
-         - name: Deploy
-           uses: peaceiris/actions-gh-pages@v3
-           with:
-             github_token: ${{ secrets.GITHUB_TOKEN }}
-             publish_dir: ./dist
-   ```
-4. Push o workflow. O site será disponível em `https://andregabrielnc.github.io/andregabriel/`.
+## Deploy
 
-## Notas
-- Para GitHub Pages com subpath, adicione `base: '/andregabriel/'` no `vite.config.js`.
-- Certifique-se de que o repositório é público para GitHub Pages gratuito.</content>
-<parameter name="filePath">c:\portfolio\claude.md
+GitHub repo: `andregabrielnc/andregabriel`
+
+**Vercel (recommended):** Connect repo, set Framework Preset to Vite, build command `npm run build`, output directory `dist`.
+
+**GitHub Pages:** Add `base: '/andregabriel/'` to `vite.config.js` when deploying to a subpath. A workflow example is available in the git history.

@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 
-const navLinks = [
+const homeLinks = [
   { label: 'Início', href: '#home' },
-  { label: 'A Entrevista', href: '#interview' },
   { label: 'Mentoria & Aulas', href: '#concursos' },
   { label: 'Discursivas', href: '#discursivas' },
   { label: 'Minha Jornada', href: '#experience' },
@@ -12,12 +10,12 @@ const navLinks = [
   { label: 'Contato', href: '#contact' },
 ];
 
-const Navbar = () => {
+const Navbar = ({ page, setPage }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
+    const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -27,72 +25,130 @@ const Navbar = () => {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
+  const goHome = () => {
+    setPage('home');
+    setMobileOpen(false);
+  };
+
+  const goQuestoes = () => {
+    setPage('questoes');
+    setMobileOpen(false);
+    window.scrollTo(0, 0);
+  };
+
+  const goFlashcards = () => {
+    setPage('flashcards');
+    setMobileOpen(false);
+    window.scrollTo(0, 0);
+  };
+
   return (
-    <nav
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled
-        ? 'bg-surface/90 backdrop-blur-md border-b border-border shadow-sm py-3'
-        : 'bg-transparent py-5'
-        }`}
-    >
-      <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
+    <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 bg-white ${scrolled ? 'shadow-md border-b border-border' : 'border-b border-border'}`}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+
         {/* Logo */}
-        <a href="#home" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-lg shadow-md">
+        <button onClick={goHome} className="flex items-center gap-2.5 shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm font-heading">
             AG
           </div>
-          <span className="font-semibold text-text group-hover:text-primary transition-colors hidden sm:block">
+          <span className="font-bold text-text font-heading text-base hidden sm:block">
             André Gabriel
           </span>
-        </a>
+        </button>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-text-muted hover:text-primary transition-colors relative after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:w-0 after:bg-primary after:transition-all after:duration-300 hover:after:w-full"
-            >
-              {link.label}
-            </a>
-          ))}
+        <div className="hidden lg:flex items-center gap-1">
+          {page === 'home' && homeLinks.map((link) =>
+            link.label === 'Contato' ? (
+              <a
+                key={link.href}
+                href={link.href}
+                className="ml-2 px-4 py-2 bg-accent text-white rounded-lg font-bold text-sm hover:bg-accent-dark transition-colors"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                className="px-3 py-2 text-sm font-medium text-text-muted hover:text-primary transition-colors rounded-lg hover:bg-bg"
+              >
+                {link.label}
+              </a>
+            )
+          )}
+
+          {/* Questões EBSERH item */}
+          <button
+            onClick={goQuestoes}
+            className={`ml-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${page === 'questoes' ? 'bg-primary text-white' : 'border border-primary text-primary hover:bg-blue-50'}`}
+          >
+            Questões EBSERH
+          </button>
+
+          {/* Flashcards item */}
+          <button
+            onClick={goFlashcards}
+            className={`ml-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${page === 'flashcards' ? 'bg-primary text-white' : 'border border-border text-text-muted hover:border-primary hover:text-primary'}`}
+          >
+            Flashcards
+          </button>
+
+          {(page === 'questoes' || page === 'flashcards') && (
+            <button onClick={goHome} className="ml-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-text-muted hover:border-border-dark transition-colors">
+              ← Voltar ao site
+            </button>
+          )}
         </div>
 
         {/* Mobile Hamburger */}
         <button
-          className="md:hidden text-text hover:text-primary transition-colors"
+          className="lg:hidden p-2 text-text hover:text-primary transition-colors rounded-lg hover:bg-bg"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
       {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
-            className="md:hidden fixed inset-0 top-16 bg-surface z-40 border-t border-border"
-          >
-            <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-8 pb-20">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="text-xl font-medium text-text-muted hover:text-primary transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {mobileOpen && (
+        <div className="lg:hidden absolute top-16 left-0 w-full bg-white border-t border-border shadow-xl z-40">
+          <div className="flex flex-col py-4">
+            {page === 'home' && homeLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileOpen(false)}
+                className={
+                  link.label === 'Contato'
+                    ? 'mx-4 mt-2 py-3 px-5 bg-accent text-white rounded-lg font-bold text-sm text-center'
+                    : 'px-6 py-3 text-sm font-medium text-text-muted hover:text-primary hover:bg-bg transition-colors'
+                }
+              >
+                {link.label}
+              </a>
+            ))}
+            <button
+              onClick={goQuestoes}
+              className={`mx-4 mt-2 py-3 px-5 rounded-lg font-bold text-sm text-center transition-colors ${page === 'questoes' ? 'bg-primary text-white' : 'border border-primary text-primary'}`}
+            >
+              Questões EBSERH
+            </button>
+            <button
+              onClick={goFlashcards}
+              className={`mx-4 mt-2 py-3 px-5 rounded-lg font-bold text-sm text-center transition-colors ${page === 'flashcards' ? 'bg-primary text-white' : 'border border-border text-text-muted'}`}
+            >
+              Flashcards
+            </button>
+            {(page === 'questoes' || page === 'flashcards') && (
+              <button onClick={goHome} className="mx-4 mt-2 py-3 px-5 border border-border rounded-lg text-sm font-medium text-text-muted text-center">
+                ← Voltar ao site
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
