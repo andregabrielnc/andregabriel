@@ -94,10 +94,13 @@ export async function initDb() {
       name       TEXT NOT NULL,
       email      TEXT NOT NULL UNIQUE,
       phone      TEXT NOT NULL DEFAULT '',
+      role       TEXT NOT NULL DEFAULT 'temporario',
       google_id  TEXT UNIQUE,
       picture    TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    -- Adiciona role se a tabela já existe sem ela
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'temporario';
 
     CREATE TABLE IF NOT EXISTS session (
       sid    VARCHAR NOT NULL COLLATE "default",

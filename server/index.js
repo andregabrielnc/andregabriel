@@ -6,6 +6,7 @@ import connectPgSimple from 'connect-pg-simple';
 import passport from 'passport';
 import flashcardsRouter from './routes/flashcards.js';
 import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 import { initDb, pool } from './db.js';
 
 const app = express();
@@ -48,6 +49,7 @@ app.use(passport.session());
 app.use(express.json({ limit: '15mb' }));
 
 app.use('/api', flashcardsRouter);
+app.use('/api/users', usersRouter);
 app.use('/auth', authRouter);
 
 initDb()

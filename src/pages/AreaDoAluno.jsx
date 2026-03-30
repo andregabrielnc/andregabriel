@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, BookOpen, ClipboardList, ChevronLeft,
-  ChevronRight, Menu, LogOut, GraduationCap
+  ChevronRight, Menu, LogOut, GraduationCap, Users
 } from 'lucide-react';
 import Flashcards from './Flashcards';
 import QuestoesEBSERH from './QuestoesEBSERH';
+import Cadastros from './Cadastros';
 
 const menuItems = [
   { id: 'dashboard',  label: 'Início',          icon: LayoutDashboard },
   { id: 'flashcards', label: 'Flashcards',       icon: BookOpen },
   { id: 'questoes',   label: 'Questões EBSERH',  icon: ClipboardList },
+  { id: 'cadastros',  label: 'Cadastros',        icon: Users },
 ];
 
 function Dashboard({ user }) {
@@ -223,6 +225,7 @@ export default function AreaDoAluno({ user, onExit }) {
           {active === 'dashboard'  && <Dashboard user={user} />}
           {active === 'flashcards' && <Flashcards embedded />}
           {active === 'questoes'   && <QuestoesEBSERH embedded />}
+          {active === 'cadastros'  && <Cadastros />}
         </main>
       </div>
     </div>

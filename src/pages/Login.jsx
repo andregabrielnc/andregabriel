@@ -201,7 +201,7 @@ export default function Login({ onBack }) {
                 className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-white border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors disabled:opacity-60"
               >
                 <GoogleIcon />
-                {regLoading ? 'Aguarde...' : 'Cadastrar com Google'}
+                {regLoading ? 'Aguarde...' : 'Cadastrar'}
               </button>
             </form>
           </div>
