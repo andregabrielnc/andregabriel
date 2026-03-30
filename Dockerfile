@@ -1,6 +1,8 @@
 # ─── Stage 1: Build frontend ──────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
+# Force development mode so devDependencies (vite, etc.) are always installed
+ENV NODE_ENV=development
 COPY package*.json ./
 RUN npm ci
 COPY . .
