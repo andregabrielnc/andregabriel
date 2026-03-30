@@ -1169,95 +1169,88 @@ function PluginModal({ plugins, onChange, onClose }) {
   );
 }
 
-// ─── Image Occlusion Editor ───────────────────────────────────────────────────
+// ─── Image Occlusion Editor (Anki IOE–style) ─────────────────────────────────
 function OcclusionEditor({ deck, noteId, onClose }) {
-  const canvasRef     = useRef(null);
-  const [image, setImage]   = useState(null);
-  const [imgEl, setImgEl]   = useState(null);
-  const [shapes, setShapes] = useState([]);
-  const [drawing, setDrawing] = useState(null);
+  const canvasRef = useRef(null);
+  const [image, setImage]       = useState(null);
+  const [imgEl, setImgEl]       = useState(null);
+  const [shapes, setShapes]     = useState([]);
+  const [drawing, setDrawing]   = useState(null);
   const [selected, setSelected] = useState(null);
-  const [tool, setTool]   = useState('rect');      // rect | ellipse
-  const [mode, setMode]   = useState('hide_all');  // hide_all | hide_one | reveal_all
-  const [header, setHeader]   = useState('');
-  const [footer, setFooter]   = useState('');
-  const [remarks, setRemarks] = useState('');
-  const [sources, setSources] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [tool, setTool]         = useState('rect');   // 'select' | 'rect' | 'ellipse'
+  const [header, setHeader]     = useState('');
+  const [footer, setFooter]     = useState('');
+  const [remarks, setRemarks]   = useState('');
+  const [sources, setSources]   = useState('');
+  const [saving, setSaving]     = useState(false);
   const [labelEdit, setLabelEdit] = useState(null);
-  const [labelVal, setLabelVal]   = useState('');
+  const [labelVal, setLabelVal] = useState('');
+  const [zoom, setZoom]         = useState(100);
+  const [showFields, setShowFields] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(null);
+  const [resizeHandle, setResizeHandle] = useState(null);
 
   // Carrega nota existente
   useEffect(() => {
     if (!noteId) return;
     fetch(`${API}/occlusion/${noteId}`).then(r => r.json()).then(n => {
-      setMode(n.mode || 'hide_all');
-      setHeader(n.header || '');
-      setFooter(n.footer || '');
-      setRemarks(n.remarks || '');
-      setSources(n.sources || '');
+      setHeader(n.header || ''); setFooter(n.footer || '');
+      setRemarks(n.remarks || ''); setSources(n.sources || '');
       setShapes(n.shapes || []);
-      const el = new Image();
+      const el = new window.Image();
       el.onload = () => setImgEl(el);
       el.src = n.image_data;
       setImage(n.image_data);
     });
   }, [noteId]);
 
-  // Keyboard shortcuts: Delete = remove selected, Escape = cancel drawing
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selected !== null && document.activeElement?.tagName !== 'INPUT') {
-          setShapes(s => s.filter((_, i) => i !== selected));
-          setSelected(null);
-        }
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected !== null) {
+        setShapes(s => s.filter((_, i) => i !== selected)); setSelected(null);
       }
-      if (e.key === 'Escape') {
-        setDrawing(null);
-        setSelected(null);
-      }
+      if (e.key === 'Escape') { setDrawing(null); setSelected(null); setResizeHandle(null); setIsDragging(false); }
+      if (e.key === 'v' || e.key === 'V') setTool('select');
+      if (e.key === 'r' || e.key === 'R') setTool('rect');
+      if (e.key === 'e' || e.key === 'E') setTool('ellipse');
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [selected]);
 
-  // Re-render canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !imgEl) return;
-    const ctx = canvas.getContext('2d');
-    canvas.width  = imgEl.naturalWidth;
-    canvas.height = imgEl.naturalHeight;
-    ctx.drawImage(imgEl, 0, 0);
-    const allShapes = drawing ? [...shapes, { ...drawing, type: tool }] : shapes;
-    allShapes.forEach((s, i) => {
-      const isSelected = i === selected;
-      ctx.fillStyle   = isSelected ? 'rgba(26,115,232,0.35)' : 'rgba(26,115,232,0.25)';
-      ctx.strokeStyle = isSelected ? '#1a73e8' : '#1557b0';
-      ctx.lineWidth   = 2;
-      if (s.type === 'ellipse') {
-        const rx = s.w / 2, ry = s.h / 2, cx = s.x + rx, cy = s.y + ry;
-        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
-      } else {
-        ctx.fillRect(s.x, s.y, s.w, s.h);
-        ctx.strokeRect(s.x, s.y, s.w, s.h);
-      }
-      ctx.fillStyle = '#fff';
-      ctx.font      = `bold ${Math.max(12, Math.min(s.w, s.h) * 0.3)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(s.label || `${i + 1}`, s.x + s.w / 2, s.y + s.h / 2);
-    });
-  }, [imgEl, shapes, drawing, selected, tool]);
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const getHandlePositions = (s) => [
+    { key: 'nw', x: s.x, y: s.y }, { key: 'n', x: s.x + s.w / 2, y: s.y },
+    { key: 'ne', x: s.x + s.w, y: s.y }, { key: 'e', x: s.x + s.w, y: s.y + s.h / 2 },
+    { key: 'se', x: s.x + s.w, y: s.y + s.h }, { key: 's', x: s.x + s.w / 2, y: s.y + s.h },
+    { key: 'sw', x: s.x, y: s.y + s.h }, { key: 'w', x: s.x, y: s.y + s.h / 2 },
+  ];
+
+  const applyResize = (shape, handle, pos) => {
+    const s = { ...shape };
+    const r = s.x + s.w, b = s.y + s.h;
+    if (handle === 'se') { s.w = pos.x - s.x; s.h = pos.y - s.y; }
+    else if (handle === 'nw') { s.x = pos.x; s.y = pos.y; s.w = r - pos.x; s.h = b - pos.y; }
+    else if (handle === 'ne') { s.y = pos.y; s.w = pos.x - s.x; s.h = b - pos.y; }
+    else if (handle === 'sw') { s.x = pos.x; s.w = r - pos.x; s.h = pos.y - s.y; }
+    else if (handle === 'n')  { s.y = pos.y; s.h = b - pos.y; }
+    else if (handle === 's')  { s.h = pos.y - s.y; }
+    else if (handle === 'w')  { s.x = pos.x; s.w = r - pos.x; }
+    else if (handle === 'e')  { s.w = pos.x - s.x; }
+    if (s.w < 10) s.w = 10;
+    if (s.h < 10) s.h = 10;
+    return s;
+  };
 
   const getPos = (e) => {
     const canvas = canvasRef.current;
-    const rect   = canvas.getBoundingClientRect();
-    const scaleX = canvas.width  / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const src    = e.touches ? e.touches[0] : e;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+    const src = e.touches ? e.touches[0] : e;
     return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
   };
 
@@ -1269,30 +1262,102 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     return x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h;
   };
 
+  const getHitHandle = (pos) => {
+    if (selected === null) return null;
+    const hs = Math.max(14, (canvasRef.current?.width || 800) * 0.012);
+    for (const h of getHandlePositions(shapes[selected])) {
+      if (Math.abs(pos.x - h.x) < hs && Math.abs(pos.y - h.y) < hs) return h.key;
+    }
+    return null;
+  };
+
+  // ── Canvas render ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imgEl) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = imgEl.naturalWidth;
+    canvas.height = imgEl.naturalHeight;
+    ctx.drawImage(imgEl, 0, 0);
+
+    const allShapes = drawing ? [...shapes, { ...drawing, type: tool === 'select' ? 'rect' : tool }] : shapes;
+    allShapes.forEach((s, i) => {
+      const isSel = i === selected && !drawing;
+      ctx.fillStyle   = isSel ? 'rgba(26,115,232,0.40)' : 'rgba(26,115,232,0.25)';
+      ctx.strokeStyle = isSel ? '#1a73e8' : '#1557b0';
+      ctx.lineWidth   = isSel ? 3 : 2;
+      if (s.type === 'ellipse') {
+        const rx = Math.abs(s.w) / 2, ry = Math.abs(s.h) / 2;
+        ctx.beginPath(); ctx.ellipse(s.x + s.w / 2, s.y + s.h / 2, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(s.x, s.y, s.w, s.h);
+        ctx.strokeRect(s.x, s.y, s.w, s.h);
+      }
+      // Label
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.max(12, Math.min(Math.abs(s.w), Math.abs(s.h)) * 0.3)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(s.label || `${i + 1}`, s.x + s.w / 2, s.y + s.h / 2);
+      // Selection handles
+      if (isSel) {
+        const hs = Math.max(6, Math.min(10, canvas.width * 0.007));
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1a73e8'; ctx.lineWidth = 1.5;
+        getHandlePositions(s).forEach(h => {
+          ctx.fillRect(h.x - hs, h.y - hs, hs * 2, hs * 2);
+          ctx.strokeRect(h.x - hs, h.y - hs, hs * 2, hs * 2);
+        });
+      }
+    });
+  }, [imgEl, shapes, drawing, selected, tool]);
+
+  // ── Mouse / touch handlers ───────────────────────────────────────────────
   const onMouseDown = (e) => {
     if (!imgEl) return;
-    const { x, y } = getPos(e);
-    const idx = shapes.findIndex(s => hitTest(s, x, y));
-    if (idx >= 0) { setSelected(idx); return; }
-    setSelected(null);
-    setDrawing({ x, y, w: 0, h: 0 });
+    const pos = getPos(e);
+    if (tool === 'select') {
+      // Resize handle?
+      if (selected !== null) {
+        const hk = getHitHandle(pos);
+        if (hk) { setResizeHandle(hk); return; }
+      }
+      // Hit test (topmost first)
+      let idx = -1;
+      for (let i = shapes.length - 1; i >= 0; i--) { if (hitTest(shapes[i], pos.x, pos.y)) { idx = i; break; } }
+      if (idx >= 0) {
+        setSelected(idx); setIsDragging(true);
+        setDragOffset({ x: pos.x - shapes[idx].x, y: pos.y - shapes[idx].y });
+      } else { setSelected(null); }
+    } else {
+      setSelected(null);
+      setDrawing({ x: pos.x, y: pos.y, w: 0, h: 0 });
+    }
   };
+
   const onMouseMove = (e) => {
-    if (!drawing) return;
-    const { x, y } = getPos(e);
-    setDrawing(d => ({ ...d, w: x - d.x, h: y - d.y }));
+    const pos = getPos(e);
+    if (resizeHandle && selected !== null) {
+      setShapes(prev => prev.map((s, i) => i === selected ? applyResize(s, resizeHandle, pos) : s));
+    } else if (isDragging && selected !== null && dragOffset) {
+      setShapes(prev => prev.map((s, i) => i === selected ? { ...s, x: pos.x - dragOffset.x, y: pos.y - dragOffset.y } : s));
+    } else if (drawing) {
+      setDrawing(d => ({ ...d, w: pos.x - d.x, h: pos.y - d.y }));
+    }
   };
+
   const onMouseUp = () => {
+    if (resizeHandle) { setResizeHandle(null); return; }
+    if (isDragging) { setIsDragging(false); setDragOffset(null); return; }
     if (!drawing) return;
     const { x, y, w, h } = drawing;
     if (Math.abs(w) > 8 && Math.abs(h) > 8) {
       const norm = { x: w < 0 ? x + w : x, y: h < 0 ? y + h : y, w: Math.abs(w), h: Math.abs(h), label: `${shapes.length + 1}`, type: tool };
-      setShapes(s => [...s, norm]);
-      setSelected(shapes.length);
+      setShapes(s => [...s, norm]); setSelected(shapes.length); setTool('select');
     }
     setDrawing(null);
   };
 
+  const touchHandler = (fn) => (e) => { e.preventDefault(); fn(e); };
   const deleteShape = (i) => { setShapes(s => s.filter((_, idx) => idx !== i)); setSelected(null); };
 
   const uploadImage = (e) => {
@@ -1301,157 +1366,183 @@ function OcclusionEditor({ deck, noteId, onClose }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const src = ev.target.result;
-      setImage(src); setShapes([]);
+      setImage(src); setShapes([]); setSelected(null);
       const el = new window.Image();
       el.onload = () => setImgEl(el);
       el.src = src;
     };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    reader.readAsDataURL(file); e.target.value = '';
   };
 
-  const save = async () => {
+  const save = async (mode) => {
     if (!image || shapes.length === 0) return;
     setSaving(true);
     try {
       const body = { deck_id: deck.id, image_data: image, shapes, mode, header, footer, remarks, sources };
-      const url  = noteId ? `${API}/occlusion/${noteId}` : `${API}/occlusion`;
+      const url = noteId ? `${API}/occlusion/${noteId}` : `${API}/occlusion`;
       const method = noteId ? 'PUT' : 'POST';
       const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error();
-      toast.success(`${shapes.length} card${shapes.length > 1 ? 's' : ''} de oclusão ${noteId ? 'atualizados' : 'criados'} com sucesso.`);
+      toast.success(`${shapes.length} card${shapes.length > 1 ? 's' : ''} de oclusão ${noteId ? 'atualizados' : 'criados'}.`);
       onClose();
     } catch { toast.error('Erro ao salvar oclusão.'); }
     finally { setSaving(false); }
   };
 
+  const cursorCls = tool === 'select'
+    ? (isDragging ? 'cursor-grabbing' : resizeHandle ? 'cursor-nwse-resize' : 'cursor-default')
+    : 'cursor-crosshair';
+
+  // ── JSX ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-bg flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-border px-4 py-3 flex items-center gap-3">
+    <div className="h-full flex flex-col bg-bg">
+      {/* ── Top bar ── */}
+      <div className="bg-white border-b border-border px-4 py-2 flex items-center gap-3 shrink-0">
         <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text"><ChevronLeft size={18} /></button>
-        <h2 className="font-bold text-text font-heading flex-1">Image Occlusion — {deck.name}</h2>
-        <button onClick={save} disabled={saving || !image || shapes.length === 0}
-          className="px-4 py-1.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors">
-          {saving ? 'Salvando…' : `Gerar ${shapes.length} card${shapes.length !== 1 ? 's' : ''}`}
+        <h2 className="font-bold text-text font-heading flex-1 text-sm sm:text-base">Image Occlusion — {deck.name}</h2>
+        <button onClick={() => setShowFields(f => !f)}
+          className={`hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${showFields ? 'border-primary text-primary bg-blue-50' : 'border-border text-text-muted hover:border-primary hover:text-primary'}`}>
+          Campos {showFields ? '▾' : '▸'}
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 p-4 max-w-6xl mx-auto w-full">
-        {/* Canvas */}
-        <div className="flex-1 flex flex-col gap-2">
-          {/* Toolbar */}
-          {image && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-text-muted font-semibold uppercase tracking-wide">Ferramenta:</span>
-              {[{ val: 'rect', icon: '▭', label: 'Retângulo' }, { val: 'ellipse', icon: '◯', label: 'Elipse' }].map(t => (
-                <button key={t.val} onClick={() => setTool(t.val)} title={t.label}
-                  className={`px-3 py-1 text-sm rounded-lg border transition-colors ${tool === t.val ? 'bg-primary text-white border-primary' : 'border-border text-text-muted hover:border-primary hover:text-primary'}`}>
-                  {t.icon} {t.label}
-                </button>
-              ))}
-              {selected !== null && (
-                <button onClick={() => deleteShape(selected)}
-                  className="ml-auto px-3 py-1 text-sm rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition-colors flex items-center gap-1">
-                  <X size={12} /> Excluir selecionada <span className="text-xs opacity-60">(Del)</span>
-                </button>
-              )}
-            </div>
-          )}
+      {/* ── Main area ── */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Left toolbar */}
+        <div className="w-11 bg-white border-r border-border flex flex-col items-center py-2 gap-0.5 shrink-0">
+          {[
+            { id: 'select',  icon: '↖',  label: 'Selecionar (V)', shortcut: 'V' },
+            { id: 'rect',    icon: '▭',  label: 'Retângulo (R)',  shortcut: 'R' },
+            { id: 'ellipse', icon: '◯',  label: 'Elipse (E)',     shortcut: 'E' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-colors ${tool === t.id ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:bg-bg hover:text-text'}`}>
+              {t.icon}
+            </button>
+          ))}
+          <div className="h-px bg-border w-6 my-1.5" />
+          <button onClick={() => selected !== null && deleteShape(selected)} title="Excluir (Del)" disabled={selected === null}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors text-text-muted hover:bg-red-50 hover:text-red-500 disabled:opacity-30">
+            <Trash2 size={14} />
+          </button>
+          <div className="h-px bg-border w-6 my-1.5" />
+          <button onClick={() => setZoom(z => Math.min(300, z + 25))} title="Zoom +"
+            className="w-9 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-text-muted hover:bg-bg hover:text-text transition-colors">+</button>
+          <button onClick={() => setZoom(z => Math.max(25, z - 25))} title="Zoom −"
+            className="w-9 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-text-muted hover:bg-bg hover:text-text transition-colors">−</button>
+          <button onClick={() => setZoom(100)} title="Encaixar"
+            className="w-9 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-text-muted hover:bg-bg hover:text-text transition-colors">FIT</button>
+          <span className="text-[9px] text-text-muted mt-1">{zoom}%</span>
+          {/* Mobile fields toggle */}
+          <button onClick={() => setShowFields(f => !f)} title="Campos"
+            className={`sm:hidden w-9 h-9 mt-auto rounded-lg flex items-center justify-center transition-colors ${showFields ? 'bg-primary text-white' : 'text-text-muted hover:bg-bg'}`}>
+            <Settings size={13} />
+          </button>
+        </div>
+
+        {/* Canvas area */}
+        <div className="flex-1 overflow-auto p-3 flex items-start justify-center bg-[#e8e8e8]">
           {!image ? (
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-16 cursor-pointer hover:border-primary hover:bg-blue-50/30 transition-colors">
-              <ImageIcon size={32} className="text-text-muted mb-2" />
-              <span className="text-sm text-text-muted">Clique para carregar uma imagem</span>
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-16 cursor-pointer hover:border-primary hover:bg-white/60 transition-colors w-full max-w-xl mx-auto my-auto bg-white/40">
+              <ImageIcon size={40} className="text-text-muted mb-3" />
+              <span className="text-sm font-medium text-text-muted mb-1">Clique para carregar uma imagem</span>
+              <span className="text-xs text-text-muted">PNG, JPG, GIF — sem limite de tamanho</span>
               <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
             </label>
           ) : (
-            <div className="relative border border-border rounded-xl overflow-hidden bg-bg">
-              <canvas ref={canvasRef} className="w-full cursor-crosshair select-none touch-none"
+            <div className="inline-block shadow-lg" style={{ width: `${zoom}%`, minWidth: 200 }}>
+              <canvas ref={canvasRef}
+                className={`w-full select-none touch-none ${cursorCls}`}
                 onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-                onTouchStart={e => { e.preventDefault(); onMouseDown(e); }}
-                onTouchMove={e => { e.preventDefault(); onMouseMove(e); }}
-                onTouchEnd={e => { e.preventDefault(); onMouseUp(); }} />
+                onTouchStart={touchHandler(onMouseDown)} onTouchMove={touchHandler(onMouseMove)} onTouchEnd={(e) => { e.preventDefault(); onMouseUp(); }} />
             </div>
           )}
-          <p className="text-xs text-text-muted">Clique e arraste para criar formas · Clique para selecionar · <kbd className="bg-bg border border-border rounded px-1">Del</kbd> excluir · <kbd className="bg-bg border border-border rounded px-1">Esc</kbd> cancelar</p>
         </div>
 
-        {/* Painel direito */}
-        <div className="w-full lg:w-64 flex flex-col gap-4">
-          {/* Upload */}
-          <label className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm text-text-muted cursor-pointer hover:border-primary hover:text-primary transition-colors">
-            <ImageIcon size={14} /> Trocar imagem
-            <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
-          </label>
-
-          {/* Modo */}
-          <div>
-            <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Modo</label>
-            {[
-              { val: 'hide_all',   label: 'Hide All, Guess One',   desc: 'Todos cobertos, revelar um por vez' },
-              { val: 'hide_one',   label: 'Hide One, Guess One',   desc: 'Apenas um coberto por vez' },
-              { val: 'reveal_all', label: 'Reveal All, Guess One', desc: 'Todos visíveis, identificar o alvo' },
-            ].map(m => (
-              <label key={m.val} className={`flex items-start gap-2 p-2.5 rounded-lg border mb-2 cursor-pointer transition-colors ${mode === m.val ? 'border-primary bg-blue-50' : 'border-border hover:bg-bg'}`}>
-                <input type="radio" name="mode" value={m.val} checked={mode === m.val} onChange={() => setMode(m.val)} className="mt-0.5" />
-                <div>
-                  <div className="text-xs font-semibold text-text">{m.label}</div>
-                  <div className="text-xs text-text-muted">{m.desc}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          {/* Campos de texto */}
-          <div>
-            <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Cabeçalho</label>
-            <input value={header} onChange={e => setHeader(e.target.value)} placeholder="Texto acima da imagem…"
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Rodapé</label>
-            <input value={footer} onChange={e => setFooter(e.target.value)} placeholder="Texto abaixo da imagem…"
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Observações <span className="normal-case font-normal">(verso)</span></label>
-            <textarea value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Anotações exibidas no verso…" rows={2}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Fontes <span className="normal-case font-normal">(verso)</span></label>
-            <input value={sources} onChange={e => setSources(e.target.value)} placeholder="Ex.: Gray's Anatomy, p. 42"
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-          </div>
-
-          {/* Lista de shapes */}
-          {shapes.length > 0 && (
+        {/* Right panel: Fields + Masks */}
+        {showFields && (
+          <div className="w-64 bg-white border-l border-border overflow-y-auto p-3 flex flex-col gap-3 shrink-0">
+            {/* Campos de texto */}
             <div>
-              <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Máscaras ({shapes.length})</label>
-              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                {shapes.map((s, i) => (
-                  <div key={i} onClick={() => setSelected(i)}
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-pointer text-sm transition-colors ${selected === i ? 'border-primary bg-blue-50' : 'border-border hover:bg-bg'}`}>
-                    <span className={`w-5 h-5 bg-primary text-white text-xs flex items-center justify-center shrink-0 ${s.type === 'ellipse' ? 'rounded-full' : 'rounded-sm'}`}>{i + 1}</span>
-                    {labelEdit === i ? (
-                      <input autoFocus value={labelVal} onChange={e => setLabelVal(e.target.value)}
-                        onBlur={() => { setShapes(sh => sh.map((x, j) => j === i ? { ...x, label: labelVal || `${i+1}` } : x)); setLabelEdit(null); }}
-                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                        className="flex-1 text-xs border-b border-primary outline-none bg-transparent" />
-                    ) : (
-                      <span className="flex-1 truncate text-xs" onDoubleClick={() => { setLabelEdit(i); setLabelVal(s.label || `${i+1}`); }}>
-                        {s.label || `${i + 1}`}
-                      </span>
-                    )}
-                    <button onClick={e => { e.stopPropagation(); deleteShape(i); }} className="text-text-muted hover:text-red-500 shrink-0"><X size={12} /></button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-text-muted mt-1">Duplo-clique no rótulo para editar.</p>
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Cabeçalho</label>
+              <input value={header} onChange={e => setHeader(e.target.value)} placeholder="Texto acima da imagem…"
+                className="w-full border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary" />
             </div>
-          )}
-        </div>
+            <div>
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Rodapé</label>
+              <input value={footer} onChange={e => setFooter(e.target.value)} placeholder="Texto abaixo da imagem…"
+                className="w-full border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Observações <span className="normal-case font-normal">(verso)</span></label>
+              <textarea value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Anotações no verso…" rows={2}
+                className="w-full border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary resize-none" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1 block">Fontes <span className="normal-case font-normal">(verso)</span></label>
+              <input value={sources} onChange={e => setSources(e.target.value)} placeholder="Ex.: Gray's Anatomy, p. 42"
+                className="w-full border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary" />
+            </div>
+            {/* Masks list */}
+            {shapes.length > 0 && (
+              <div>
+                <label className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5 block">Máscaras ({shapes.length})</label>
+                <div className="flex flex-col gap-1 max-h-52 overflow-y-auto">
+                  {shapes.map((s, i) => (
+                    <div key={i} onClick={() => { setSelected(i); setTool('select'); }}
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-pointer text-sm transition-colors ${selected === i ? 'border-primary bg-blue-50' : 'border-border hover:bg-bg'}`}>
+                      <span className={`w-5 h-5 bg-primary text-white text-xs flex items-center justify-center shrink-0 ${s.type === 'ellipse' ? 'rounded-full' : 'rounded-sm'}`}>{i + 1}</span>
+                      {labelEdit === i ? (
+                        <input autoFocus value={labelVal} onChange={e => setLabelVal(e.target.value)}
+                          onBlur={() => { setShapes(sh => sh.map((x, j) => j === i ? { ...x, label: labelVal || `${i+1}` } : x)); setLabelEdit(null); }}
+                          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                          className="flex-1 text-xs border-b border-primary outline-none bg-transparent" />
+                      ) : (
+                        <span className="flex-1 truncate text-xs" onDoubleClick={() => { setLabelEdit(i); setLabelVal(s.label || `${i+1}`); }}>
+                          {s.label || `${i + 1}`}
+                        </span>
+                      )}
+                      <button onClick={e => { e.stopPropagation(); deleteShape(i); }} className="text-text-muted hover:text-red-500 shrink-0"><X size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-text-muted mt-1">Duplo-clique no rótulo para editar.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Bottom bar (Anki IOE–style) ── */}
+      <div className="bg-white border-t border-border px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
+        <label className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-medium text-text-muted cursor-pointer hover:border-primary hover:text-primary transition-colors">
+          <ImageIcon size={13} /> Change Image
+          <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
+        </label>
+
+        <div className="flex-1" />
+
+        <span className="text-xs font-semibold text-text-muted hidden sm:inline">Add Cards:</span>
+        <button onClick={() => save('hide_all')} disabled={saving || !image || shapes.length === 0}
+          className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-40 transition-colors">
+          {saving ? '…' : 'Hide All, Guess One'}
+        </button>
+        <button onClick={() => save('hide_one')} disabled={saving || !image || shapes.length === 0}
+          className="px-4 py-2 bg-white border-2 border-primary text-primary rounded-lg text-xs font-bold hover:bg-blue-50 disabled:opacity-40 transition-colors">
+          Hide One, Guess One
+        </button>
+        <button onClick={onClose}
+          className="px-4 py-2 border border-border rounded-lg text-xs font-medium text-text-muted hover:text-text hover:border-border-dark transition-colors">
+          Close
+        </button>
+      </div>
+
+      {/* Help footer */}
+      {image && (
+        <div className="bg-bg/60 border-t border-border px-4 py-1 text-[10px] text-text-muted text-center shrink-0">
+          <b>V</b> Selecionar · <b>R</b> Retângulo · <b>E</b> Elipse · Arraste para mover · Alças para redimensionar · <kbd className="bg-white border border-border rounded px-0.5">Del</kbd> excluir · <kbd className="bg-white border border-border rounded px-0.5">Esc</kbd> cancelar
+        </div>
+      )}
     </div>
   );
 }
