@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   LayoutDashboard, BookOpen, ClipboardList, ChevronLeft,
   ChevronRight, Menu, LogOut, GraduationCap, Users
 } from 'lucide-react';
-import Flashcards from './Flashcards';
-import QuestoesEBSERH from './QuestoesEBSERH';
-import Cadastros from './Cadastros';
+
+const Flashcards = lazy(() => import('./Flashcards'));
+const QuestoesEBSERH = lazy(() => import('./QuestoesEBSERH'));
+const Cadastros = lazy(() => import('./Cadastros'));
 
 const menuItems = [
   { id: 'dashboard',  label: 'Início',          icon: LayoutDashboard },
@@ -222,10 +223,12 @@ export default function AreaDoAluno({ user, onExit }) {
 
         {/* Página ativa */}
         <main className="flex-1 overflow-auto">
-          {active === 'dashboard'  && <Dashboard user={user} />}
-          {active === 'flashcards' && <Flashcards embedded />}
-          {active === 'questoes'   && <QuestoesEBSERH embedded />}
-          {active === 'cadastros'  && <Cadastros />}
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center py-20"><div className="w-7 h-7 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+            {active === 'dashboard'  && <Dashboard user={user} />}
+            {active === 'flashcards' && <Flashcards embedded />}
+            {active === 'questoes'   && <QuestoesEBSERH embedded />}
+            {active === 'cadastros'  && <Cadastros />}
+          </Suspense>
         </main>
       </div>
     </div>

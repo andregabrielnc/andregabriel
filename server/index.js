@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import passport from 'passport';
@@ -13,9 +16,19 @@ const app = express();
 const PORT = 3001;
 const PgSession = connectPgSimple(session);
 
-// Necessário para req.secure funcionar corretamente atrás do nginx
+// ── Trust proxy (behind nginx / Traefik) ────────────────────────────────────
 app.set('trust proxy', 1);
 
+// ── Security headers ─────────────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false, // SPA handles its own CSP
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ── Compression ──────────────────────────────────────────────────────────────
+app.use(compression());
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   'https://andregabriel.com.br',
   'https://www.andregabriel.com.br',
@@ -27,11 +40,30 @@ app.use(cors({
   credentials: true,
 }));
 
+// ── Rate limiting ────────────────────────────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 15,
+  message: { error: 'Muitas tentativas. Aguarde 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 min
+  max: 120,
+  message: { error: 'Limite de requisições excedido.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ── Session ──────────────────────────────────────────────────────────────────
 app.use(session({
   store: new PgSession({
     pool,
     tableName: 'session',
     createTableIfMissing: false,
+    pruneSessionInterval: 60 * 15, // clean expired sessions every 15 min
   }),
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
@@ -39,19 +71,26 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 dias
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
     sameSite: 'lax',
   },
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '10mb' }));
 
-app.use('/api', flashcardsRouter);
-app.use('/api/users', usersRouter);
-app.use('/auth', authRouter);
+// ── Health check ─────────────────────────────────────────────────────────────
+app.get('/api/health', (_req, res) => {
+  pool.query('SELECT 1').then(() => res.json({ ok: true })).catch(() => res.status(503).json({ ok: false }));
+});
 
+// ── Routes ───────────────────────────────────────────────────────────────────
+app.use('/auth', authLimiter, authRouter);
+app.use('/api/users', apiLimiter, usersRouter);
+app.use('/api', apiLimiter, flashcardsRouter);
+
+// ── Start ────────────────────────────────────────────────────────────────────
 initDb()
   .then(() => app.listen(PORT, () => console.log(`API server running on http://localhost:${PORT}`)))
   .catch(err => { console.error('Failed to initialize database:', err.message); process.exit(1); });

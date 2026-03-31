@@ -7,8 +7,10 @@ const pool = new Pool({
   database: process.env.DB_NAME     || 'agconcursos',
   user:     process.env.DB_USER     || 'agconcursos',
   password: process.env.DB_PASSWORD,
-  max: 10,
-  idleTimeoutMillis: 30000,
+  max: 60,
+  min: 10,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 5000,
 });
 
 pool.on('error', (err) => {
@@ -111,6 +113,15 @@ export async function initDb() {
       CONSTRAINT session_pkey PRIMARY KEY (sid)
     );
     CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
+
+    -- Performance indexes
+    CREATE INDEX IF NOT EXISTS idx_cards_deck_active       ON cards (deck_id, active);
+    CREATE INDEX IF NOT EXISTS idx_cards_occlusion         ON cards (occlusion_note_id) WHERE occlusion_note_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_card_states_session_due  ON card_states (session_id, due);
+    CREATE INDEX IF NOT EXISTS idx_card_states_card_session ON card_states (card_id, session_id);
+    CREATE INDEX IF NOT EXISTS idx_review_logs_session      ON review_logs (session_id, reviewed_at);
+    CREATE INDEX IF NOT EXISTS idx_decks_parent             ON decks (parent_id);
+    CREATE INDEX IF NOT EXISTS idx_users_google_id          ON users (google_id) WHERE google_id IS NOT NULL;
   `);
   console.log('Database schema ready.');
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { Toaster } from 'sonner';
 import Navbar from './components/Navbar';
@@ -14,8 +14,10 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import CookieBanner from './components/CookieBanner';
-import AreaDoAluno from './pages/AreaDoAluno';
-import Login from './pages/Login';
+
+// Code-split: only loaded when user accesses these pages
+const AreaDoAluno = lazy(() => import('./pages/AreaDoAluno'));
+const Login = lazy(() => import('./pages/Login'));
 
 function WelcomeModal({ user, onClose }) {
   return (
@@ -106,12 +108,18 @@ function App() {
 
   if (!authChecked) return null;
 
+  const PageLoader = () => (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   if (page === 'aluno') {
     return (
-      <>
+      <Suspense fallback={<PageLoader />}>
         <AreaDoAluno user={user} onExit={exitAluno} />
         <Toaster position="bottom-right" richColors closeButton />
-      </>
+      </Suspense>
     );
   }
 
@@ -127,13 +135,13 @@ function App() {
 
   if (page === 'login') {
     return (
-      <>
+      <Suspense fallback={<PageLoader />}>
         <Login
           onBack={() => setPage('home')}
           onSuccess={(u) => { setUser(u); setWelcomeUser(u); setPage('welcome'); }}
         />
         <Toaster position="bottom-right" richColors closeButton />
-      </>
+      </Suspense>
     );
   }
 

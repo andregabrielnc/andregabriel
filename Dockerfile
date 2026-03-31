@@ -15,8 +15,8 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 
-# Install nginx
-RUN apk add --no-cache nginx
+# Install nginx + curl (for healthcheck)
+RUN apk add --no-cache nginx curl
 
 # Install only production dependencies for the server
 COPY package*.json ./
@@ -32,6 +32,9 @@ COPY server/ ./server/
 COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:3001/api/health || exit 1
 
 # Start nginx + node server
 CMD ["sh", "-c", "node server/index.js & nginx -g 'daemon off;'"]

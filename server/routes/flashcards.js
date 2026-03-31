@@ -3,6 +3,14 @@ import pool from '../db.js';
 
 const router = Router();
 
+function requireAuth(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Não autenticado.' });
+  next();
+}
+
+// Apply auth to all routes
+router.use(requireAuth);
+
 // ─── FSRS helpers (replicados no servidor para calcular novos estados) ────────
 const W = [0.4072,1.1829,3.1262,15.4722,7.2102,0.5316,1.0651,0.0589,1.5330,0.1544,1.0070,1.9395,0.1100,0.2900,2.2700,0.0000,2.9898];
 const DECAY = -0.5, FACTOR = 19/81;
@@ -332,19 +340,22 @@ router.post('/occlusion', async (req, res) => {
       'INSERT INTO occlusion_notes (deck_id, image_data, shapes, mode, header, footer, remarks, sources) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
       [deck_id, image_data, JSON.stringify(shapes), mode || 'hide_all', header || '', footer || '', remarks || '', sources || '']
     );
-    const cardIds = [];
-    for (let i = 0; i < shapes.length; i++) {
-      if (shapes[i].type === 'text') continue;
-      const label = shapes[i].label || `${i + 1}`;
-      const { rows: [card] } = await client.query(
-        'INSERT INTO cards (deck_id, front, back, occlusion_note_id, shape_index) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-        [deck_id, `[occlusion:${note.id}:${i}]`, label, note.id, i]
+    const maskShapes = shapes.map((s, i) => ({ ...s, idx: i })).filter(s => s.type !== 'text');
+    if (maskShapes.length > 0) {
+      const vals = [], params = [];
+      maskShapes.forEach((s, n) => {
+        const off = n * 5;
+        vals.push(`($${off+1},$${off+2},$${off+3},$${off+4},$${off+5})`);
+        params.push(deck_id, `[occlusion:${note.id}:${s.idx}]`, s.label || `${s.idx + 1}`, note.id, s.idx);
+      });
+      await client.query(
+        `INSERT INTO cards (deck_id, front, back, occlusion_note_id, shape_index) VALUES ${vals.join(',')}`,
+        params
       );
-      cardIds.push(card.id);
     }
     await client.query('UPDATE decks SET card_count=(SELECT COUNT(*) FROM cards WHERE deck_id=$1 AND active=TRUE) WHERE id=$1', [deck_id]);
     await client.query('COMMIT');
-    res.json({ note, card_count: cardIds.length });
+    res.json({ note, card_count: maskShapes.length });
   } catch (e) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: e.message });
@@ -361,19 +372,23 @@ router.put('/occlusion/:id', async (req, res) => {
       'UPDATE occlusion_notes SET image_data=$1, shapes=$2, mode=$3, header=$4, footer=$5, remarks=$6, sources=$7 WHERE id=$8 RETURNING *',
       [image_data, JSON.stringify(shapes), mode || 'hide_all', header || '', footer || '', remarks || '', sources || '', req.params.id]
     );
-    // Remove old cards e recria
     await client.query('DELETE FROM cards WHERE occlusion_note_id=$1', [req.params.id]);
-    for (let i = 0; i < shapes.length; i++) {
-      if (shapes[i].type === 'text') continue;
-      const label = shapes[i].label || `${i + 1}`;
+    const maskShapes = shapes.map((s, i) => ({ ...s, idx: i })).filter(s => s.type !== 'text');
+    if (maskShapes.length > 0) {
+      const vals = [], params = [];
+      maskShapes.forEach((s, n) => {
+        const off = n * 5;
+        vals.push(`($${off+1},$${off+2},$${off+3},$${off+4},$${off+5})`);
+        params.push(note.deck_id, `[occlusion:${note.id}:${s.idx}]`, s.label || `${s.idx + 1}`, note.id, s.idx);
+      });
       await client.query(
-        'INSERT INTO cards (deck_id, front, back, occlusion_note_id, shape_index) VALUES ($1,$2,$3,$4,$5)',
-        [note.deck_id, `[occlusion:${note.id}:${i}]`, label, note.id, i]
+        `INSERT INTO cards (deck_id, front, back, occlusion_note_id, shape_index) VALUES ${vals.join(',')}`,
+        params
       );
     }
     await client.query('UPDATE decks SET card_count=(SELECT COUNT(*) FROM cards WHERE deck_id=$1 AND active=TRUE) WHERE id=$1', [note.deck_id]);
     await client.query('COMMIT');
-    res.json({ note, card_count: shapes.length });
+    res.json({ note, card_count: maskShapes.length });
   } catch (e) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: e.message });
