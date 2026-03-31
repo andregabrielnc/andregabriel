@@ -1,18 +1,20 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   LayoutDashboard, BookOpen, ClipboardList, ChevronLeft,
-  ChevronRight, Menu, LogOut, GraduationCap, Users
+  ChevronRight, Menu, LogOut, GraduationCap, Users, FileText
 } from 'lucide-react';
 
 const Flashcards = lazy(() => import('./Flashcards'));
 const QuestoesEBSERH = lazy(() => import('./QuestoesEBSERH'));
 const Cadastros = lazy(() => import('./Cadastros'));
+const Editais = lazy(() => import('./Editais'));
 
 const menuItems = [
-  { id: 'dashboard',  label: 'Início',          icon: LayoutDashboard },
-  { id: 'flashcards', label: 'Flashcards',       icon: BookOpen },
-  { id: 'questoes',   label: 'Questões EBSERH',  icon: ClipboardList },
-  { id: 'cadastros',  label: 'Cadastros',        icon: Users },
+  { id: 'dashboard',  label: 'Início',              icon: LayoutDashboard },
+  { id: 'flashcards', label: 'Flashcards',           icon: BookOpen },
+  { id: 'questoes',   label: 'Questões EBSERH',      icon: ClipboardList },
+  { id: 'editais',    label: 'Editais de Concurso',   icon: FileText },
+  { id: 'cadastros',  label: 'Cadastros',            icon: Users },
 ];
 
 function Dashboard({ user }) {
@@ -227,6 +229,7 @@ export default function AreaDoAluno({ user, onExit }) {
             {active === 'dashboard'  && <Dashboard user={user} />}
             {active === 'flashcards' && <Flashcards embedded />}
             {active === 'questoes'   && <QuestoesEBSERH embedded />}
+            {active === 'editais'    && <Editais />}
             {active === 'cadastros'  && <Cadastros />}
           </Suspense>
         </main>

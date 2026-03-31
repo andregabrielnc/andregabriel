@@ -114,6 +114,25 @@ export async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
 
+    CREATE TABLE IF NOT EXISTS editais (
+      id                     SERIAL PRIMARY KEY,
+      numero                 TEXT NOT NULL,
+      orgao                  TEXT NOT NULL,
+      data_publicacao        DATE,
+      data_inscricao_inicio  DATE,
+      data_inscricao_fim     DATE,
+      link_banca             TEXT NOT NULL DEFAULT '',
+      validade               TEXT NOT NULL DEFAULT '',
+      data_impugnacao_inicio DATE,
+      data_impugnacao_fim    DATE,
+      vagas                  JSONB NOT NULL DEFAULT '[]',
+      anexos                 JSONB NOT NULL DEFAULT '[]',
+      conteudos_basicos      JSONB NOT NULL DEFAULT '[]',
+      grupos_especificos     JSONB NOT NULL DEFAULT '[]',
+      created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     -- Performance indexes
     CREATE INDEX IF NOT EXISTS idx_cards_deck_active       ON cards (deck_id, active);
     CREATE INDEX IF NOT EXISTS idx_cards_occlusion         ON cards (occlusion_note_id) WHERE occlusion_note_id IS NOT NULL;

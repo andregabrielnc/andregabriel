@@ -10,6 +10,7 @@ import passport from 'passport';
 import flashcardsRouter from './routes/flashcards.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
+import editaisRouter from './routes/editais.js';
 import { initDb, pool } from './db.js';
 
 const app = express();
@@ -88,6 +89,7 @@ app.get('/api/health', (_req, res) => {
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/auth', authLimiter, authRouter);
 app.use('/api/users', apiLimiter, usersRouter);
+app.use('/api/editais', apiLimiter, editaisRouter);
 app.use('/api', apiLimiter, flashcardsRouter);
 
 // ── Start ────────────────────────────────────────────────────────────────────

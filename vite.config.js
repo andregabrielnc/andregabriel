@@ -23,6 +23,7 @@ export default defineConfig({
             '@tiptap/extension-underline',
           ],
           'vendor-motion': ['framer-motion'],
+          'vendor-mui': ['@mui/material', '@mui/icons-material', '@mui/x-data-grid'],
         },
       },
     },
