@@ -6,10 +6,11 @@ import {
   Paper, Typography, IconButton, Grid, Divider, Table, TableHead,
   TableRow, TableCell, TableBody, TableContainer, Chip, Tooltip,
   Snackbar, Alert, FormControl, InputLabel, CircularProgress,
+  Switch, FormControlLabel,
 } from '@mui/material';
 import {
   Add, Delete, Edit, Save, Close, Upload, Description,
-  ArrowBack, ExpandMore,
+  ArrowBack, ExpandMore, Visibility,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 
@@ -75,12 +76,14 @@ function calcDistribuicao(vagas_total: number, cotas: CotaEdital[]) {
 interface Anexo {
   id: string;
   nome: string;
-  arquivo: string;
+  arquivo: string;   // filename
+  dados: string;     // base64 data URL
 }
 
 interface TopicoBasico {
   id: string;
   titulo: string;
+  todos_cargos: boolean;
 }
 
 interface SubTopico {
@@ -174,6 +177,7 @@ const emptyAnexo = (): Anexo => ({
   id: uid(),
   nome: '',
   arquivo: '',
+  dados: '',
 });
 
 const emptyDisciplina = (): Disciplina => ({
@@ -206,6 +210,9 @@ const EditaisPage: React.FC = () => {
   const [anexoModal, setAnexoModal] = useState(false);
   const [anexoEdit, setAnexoEdit] = useState<Anexo | null>(null);
   const [anexoForm, setAnexoForm] = useState<Anexo>(emptyAnexo());
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [previewAnexo, setPreviewAnexo] = useState<Anexo | null>(null);
 
   // ── Delete confirmation dialogs ────────────────────────────────────────────
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id?: number }>({ open: false });
@@ -310,12 +317,6 @@ const EditaisPage: React.FC = () => {
       conteudos_especificos: conteudosEspecificos,
     };
 
-    // Recalculate vagas_total for each cargo from its cotas
-    payload.cargos = payload.cargos.map(c => ({
-      ...c,
-      vagas_total: c.cotas.reduce((sum, cota) => sum + Number(cota.vagas || 0), 0),
-    }));
-
     try {
       const url = isNew ? API_URL : `${API_URL}/${editing!.id}`;
       const method = isNew ? 'POST' : 'PUT';
@@ -386,7 +387,7 @@ const EditaisPage: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   const addConteudoBasico = () =>
-    setConteudosBasicos(prev => [...prev, { id: uid(), titulo: '' }]);
+    setConteudosBasicos(prev => [...prev, { id: uid(), titulo: '', todos_cargos: true }]);
 
   const updateConteudoBasico = (id: string, titulo: string) =>
     setConteudosBasicos(prev => prev.map(c => c.id === id ? { ...c, titulo } : c));
@@ -1086,9 +1087,22 @@ const EditaisPage: React.FC = () => {
                 <TextField
                   value={item.titulo}
                   onChange={(e) => updateConteudoBasico(item.id, e.target.value)}
-                  fullWidth
+                  sx={{ flex: 1 }}
                   size="small"
                   placeholder="Tópico"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={item.todos_cargos !== false}
+                      onChange={(e) => setConteudosBasicos(prev =>
+                        prev.map(c => c.id === item.id ? { ...c, todos_cargos: e.target.checked } : c)
+                      )}
+                    />
+                  }
+                  label={<Typography variant="caption" color="text.secondary" noWrap>Todos os cargos</Typography>}
+                  sx={{ mr: 0, minWidth: 140 }}
                 />
                 <IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}>
                   <Delete fontSize="small" />
@@ -1240,6 +1254,13 @@ const EditaisPage: React.FC = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
+                      {anexo.dados && (
+                        <Tooltip title="Visualizar">
+                          <IconButton size="small" color="primary" onClick={() => setPreviewAnexo(anexo)}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => openAnexoModal(anexo)}>
                           <Edit fontSize="small" />
@@ -1287,19 +1308,80 @@ const EditaisPage: React.FC = () => {
             fullWidth
             sx={{ mt: 1, mb: 2 }}
           />
-          <TextField
-            label="Arquivo (.pdf)"
-            value={anexoForm.arquivo}
-            onChange={(e) => setAnexoForm(f => ({ ...f, arquivo: e.target.value }))}
-            fullWidth
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.type !== 'application/pdf') {
+                setSnack({ open: true, message: 'Apenas arquivos PDF são aceitos.', severity: 'error' });
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                setAnexoForm(f => ({
+                  ...f,
+                  arquivo: file.name,
+                  dados: ev.target?.result as string,
+                }));
+              };
+              reader.readAsDataURL(file);
+              e.target.value = '';
+            }}
           />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              label="Arquivo (.pdf)"
+              value={anexoForm.arquivo}
+              fullWidth
+              slotProps={{ input: { readOnly: true } }}
+              size="small"
+            />
+            <Button
+              variant="outlined"
+              startIcon={<Upload />}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{ whiteSpace: 'nowrap', color: PRIMARY, borderColor: PRIMARY }}
+            >
+              Selecionar
+            </Button>
+          </Box>
+          {anexoForm.dados && (
+            <Box sx={{ mt: 2, border: '1px solid #e0e0e0', borderRadius: 1, overflow: 'hidden' }}>
+              <embed src={anexoForm.dados} type="application/pdf" width="100%" height="300px" />
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAnexoModal(false)} startIcon={<Close />}>Cancelar</Button>
-          <Button variant="contained" onClick={saveAnexo} startIcon={<Save />} sx={{ bgcolor: PRIMARY }}>
+          <Button
+            variant="contained"
+            onClick={saveAnexo}
+            startIcon={<Save />}
+            sx={{ bgcolor: PRIMARY }}
+            disabled={!anexoForm.nome || !anexoForm.arquivo}
+          >
             Salvar
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Anexo Preview Modal */}
+      <Dialog open={!!previewAnexo} onClose={() => setPreviewAnexo(null)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {previewAnexo?.nome}
+            <IconButton onClick={() => setPreviewAnexo(null)}><Close /></IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {previewAnexo?.dados && (
+            <embed src={previewAnexo.dados} type="application/pdf" width="100%" height="600px" />
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Delete Cargo Confirmation */}
