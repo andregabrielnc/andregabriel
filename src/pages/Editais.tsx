@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { toast } from 'sonner';
 import {
   Box, Button, TextField, Select, MenuItem, Tabs, Tab, Dialog,
   DialogTitle, DialogContent, DialogActions, DialogContentText,
   Paper, Typography, IconButton, Grid, Divider, Table, TableHead,
   TableRow, TableCell, TableBody, TableContainer, Chip, Tooltip,
-  Snackbar, Alert, FormControl, InputLabel, CircularProgress,
+  FormControl, InputLabel, CircularProgress,
   Switch, FormControlLabel,
 } from '@mui/material';
 import {
@@ -227,10 +228,6 @@ const EditaisPage: React.FC = () => {
   const [deleteCargoDialog, setDeleteCargoDialog] = useState<{ open: boolean; cargoId?: string }>({ open: false });
   const [deleteAnexoDialog, setDeleteAnexoDialog] = useState<{ open: boolean; anexoId?: string }>({ open: false });
 
-  // ── Feedback ───────────────────────────────────────────────────────────────
-  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false, message: '', severity: 'success',
-  });
   const [saving, setSaving] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<EditalFormFields>({
@@ -249,7 +246,7 @@ const EditaisPage: React.FC = () => {
       const data = await res.json();
       setEditais(data);
     } catch {
-      setSnack({ open: true, message: 'Erro ao carregar editais', severity: 'error' });
+      toast.error('Erro ao carregar editais');
     } finally {
       setLoading(false);
     }
@@ -306,7 +303,7 @@ const EditaisPage: React.FC = () => {
       setConteudosEspecificos(data.conteudos_especificos || []);
       setActiveTab(0);
     } catch {
-      setSnack({ open: true, message: 'Erro ao carregar edital', severity: 'error' });
+      toast.error('Erro ao carregar edital');
     } finally {
       setLoading(false);
     }
@@ -339,7 +336,7 @@ const EditaisPage: React.FC = () => {
       });
       if (!res.ok) throw new Error('Erro ao salvar');
       const saved = await res.json();
-      setSnack({ open: true, message: 'Edital salvo com sucesso!', severity: 'success' });
+      toast.success('Edital salvo com sucesso!');
       // Stay on the form — update editing with saved data (keeps ID for new editals)
       if (isNew) {
         setIsNew(false);
@@ -347,7 +344,7 @@ const EditaisPage: React.FC = () => {
       }
       fetchEditais();
     } catch {
-      setSnack({ open: true, message: 'Erro ao salvar edital', severity: 'error' });
+      toast.error('Erro ao salvar edital');
     } finally {
       setSaving(false);
     }
@@ -362,10 +359,10 @@ const EditaisPage: React.FC = () => {
     try {
       const res = await fetch(`${API_URL}/${deleteDialog.id}`, { ...FETCH_OPTS, method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir');
-      setSnack({ open: true, message: 'Edital excluído', severity: 'success' });
+      toast.success('Edital excluído com sucesso!');
       fetchEditais();
     } catch {
-      setSnack({ open: true, message: 'Erro ao excluir edital', severity: 'error' });
+      toast.error('Erro ao excluir edital');
     } finally {
       setDeleteDialog({ open: false });
     }
@@ -637,9 +634,6 @@ const EditaisPage: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-          <Alert severity={snack.severity} onClose={() => setSnack(s => ({ ...s, open: false }))}>{snack.message}</Alert>
-        </Snackbar>
       </Box>
     );
   }
@@ -1356,7 +1350,7 @@ const EditaisPage: React.FC = () => {
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════
-          Dialogs & Snackbar
+          Dialogs
           ═════════════════════════════════════════════════════════════════════ */}
 
       {/* Anexo Modal */}
@@ -1379,7 +1373,7 @@ const EditaisPage: React.FC = () => {
               const file = e.target.files?.[0];
               if (!file) return;
               if (file.type !== 'application/pdf') {
-                setSnack({ open: true, message: 'Apenas arquivos PDF são aceitos.', severity: 'error' });
+                toast.error('Apenas arquivos PDF são aceitos.');
                 return;
               }
               const reader = new FileReader();
@@ -1470,12 +1464,6 @@ const EditaisPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
-      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-        <Alert severity={snack.severity} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-          {snack.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

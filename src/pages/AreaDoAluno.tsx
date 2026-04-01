@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react';
+import { Toaster } from 'sonner';
 import {
   Box, Drawer, AppBar, Toolbar, IconButton, Typography, List, ListItemButton,
   ListItemIcon, ListItemText, Divider, Avatar, Menu, MenuItem, Breadcrumbs,
@@ -514,6 +515,8 @@ export default function AreaDoAluno({ user, onExit }: AreaDoAlunoProps) {
             </Suspense>
           </Box>
         </Main>
+
+        <Toaster position="bottom-right" richColors closeButton />
       </Box>
     </ThemeProvider>
   );
