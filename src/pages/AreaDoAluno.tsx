@@ -93,22 +93,13 @@ const theme = createTheme({
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** Main content area — shifts when drawer opens */
-const Main = styled('main', { shouldForwardProp: (p) => p !== 'open' })<{ open: boolean }>(
-  ({ theme: t, open }) => ({
-    flexGrow: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-    overflow: 'hidden',
-    transition: t.transitions.create('margin', {
-      easing:   t.transitions.easing.sharp,
-      duration: open ? t.transitions.duration.enteringScreen : t.transitions.duration.leavingScreen,
-    }),
-    [t.breakpoints.up('lg')]: {
-      marginLeft: open ? DRAWER_WIDTH : DRAWER_MINI,
-    },
-  }),
-);
+const Main = styled('main')(() => ({
+  flexGrow: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  overflow: 'hidden',
+}));
 
 /** Glassmorphism AppBar */
 const GlassAppBar = styled(AppBar)(({ theme: t }) => ({
@@ -411,7 +402,7 @@ export default function AreaDoAluno({ user, onExit }: AreaDoAlunoProps) {
         {/* ═══════════════════════════════════════════════════════════════════
             Main Content Area
             ═══════════════════════════════════════════════════════════════════ */}
-        <Main open={drawerOpen}>
+        <Main>
 
           {/* ── Glass AppBar ── */}
           <GlassAppBar position="sticky">

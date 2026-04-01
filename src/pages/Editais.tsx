@@ -302,7 +302,7 @@ const EditaisPage: React.FC = () => {
       setCotas(data.cotas || []);
       setCargos(data.cargos || []);
       setAnexos(data.anexos || []);
-      setConteudosBasicos(data.conteudos_basicos || []);
+      setConteudosBasicos((data.conteudos_basicos || []).map((t: any) => ({ ...t, subtopicos: t.subtopicos || [] })));
       setConteudosEspecificos(data.conteudos_especificos || []);
       setActiveTab(0);
     } catch {
@@ -415,19 +415,19 @@ const EditaisPage: React.FC = () => {
 
   const addSubTopicoBasico = (topicoId: string) =>
     setConteudosBasicos(prev => prev.map(t =>
-      t.id === topicoId ? { ...t, subtopicos: [...t.subtopicos, { id: uid(), titulo: '' }] } : t
+      t.id === topicoId ? { ...t, subtopicos: [...(t.subtopicos || []), { id: uid(), titulo: '' }] } : t
     ));
 
   const updateSubTopicoBasico = (topicoId: string, subId: string, titulo: string) =>
     setConteudosBasicos(prev => prev.map(t =>
       t.id === topicoId
-        ? { ...t, subtopicos: t.subtopicos.map(s => s.id === subId ? { ...s, titulo } : s) }
+        ? { ...t, subtopicos: (t.subtopicos || []).map(s => s.id === subId ? { ...s, titulo } : s) }
         : t
     ));
 
   const removeSubTopicoBasico = (topicoId: string, subId: string) =>
     setConteudosBasicos(prev => prev.map(t =>
-      t.id === topicoId ? { ...t, subtopicos: t.subtopicos.filter(s => s.id !== subId) } : t
+      t.id === topicoId ? { ...t, subtopicos: (t.subtopicos || []).filter(s => s.id !== subId) } : t
     ));
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1152,7 +1152,7 @@ const EditaisPage: React.FC = () => {
                   </IconButton>
                 </Box>
                 {/* Sub-tópicos */}
-                {item.subtopicos?.map((sub, sIdx) => (
+                {(item.subtopicos || []).map((sub, sIdx) => (
                   <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5, mt: 0.5 }}>
                     <Typography variant="body2" sx={{ minWidth: 36, fontWeight: 600, color: 'text.secondary' }}>
                       {index + 1}.{sIdx + 1}
