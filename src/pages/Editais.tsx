@@ -7,7 +7,7 @@ import {
   Paper, Typography, IconButton, Grid, Divider, Table, TableHead,
   TableRow, TableCell, TableBody, TableContainer, Chip, Tooltip,
   FormControl, InputLabel, CircularProgress,
-  Switch, FormControlLabel,
+  Switch, FormControlLabel, Autocomplete,
 } from '@mui/material';
 import {
   Add, Delete, Edit, Save, Close, Upload, Description,
@@ -106,7 +106,7 @@ interface Topico {
 interface Disciplina {
   id: string;
   nome: string;
-  cargos_aplicaveis: string;
+  cargos_aplicaveis: string[];  // IDs dos cargos
   topicos: Topico[];
 }
 
@@ -192,7 +192,7 @@ const emptyAnexo = (): Anexo => ({
 const emptyDisciplina = (): Disciplina => ({
   id: uid(),
   nome: '',
-  cargos_aplicaveis: '',
+  cargos_aplicaveis: [],
   topicos: [],
 });
 
@@ -300,7 +300,10 @@ const EditaisPage: React.FC = () => {
       setCargos(data.cargos || []);
       setAnexos(data.anexos || []);
       setConteudosBasicos((data.conteudos_basicos || []).map((t: any) => ({ ...t, subtopicos: t.subtopicos || [] })));
-      setConteudosEspecificos(data.conteudos_especificos || []);
+      setConteudosEspecificos((data.conteudos_especificos || []).map((d: any) => ({
+        ...d,
+        cargos_aplicaveis: Array.isArray(d.cargos_aplicaveis) ? d.cargos_aplicaveis : [],
+      })));
       setActiveTab(0);
     } catch {
       toast.error('Erro ao carregar edital');
@@ -1193,12 +1196,23 @@ const EditaisPage: React.FC = () => {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    label="Cargos Aplicáveis"
-                    value={disc.cargos_aplicaveis}
-                    onChange={(e) => updateDisciplina(disc.id, 'cargos_aplicaveis', e.target.value)}
-                    fullWidth
-                    placeholder="Enfermeiro, Técnico em Enfermagem"
+                  <Autocomplete
+                    multiple
+                    options={cargos}
+                    getOptionLabel={(opt) => opt.nome || ''}
+                    value={cargos.filter(c => (disc.cargos_aplicaveis || []).includes(c.id))}
+                    onChange={(_e, selected) => updateDisciplina(disc.id, 'cargos_aplicaveis', selected.map(c => c.id))}
+                    isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                    renderInput={(params) => (
+                      <TextField {...params} label="Cargos Aplicáveis" placeholder="Pesquisar cargo..." />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((opt, index) => {
+                        const { key, ...rest } = getTagProps({ index });
+                        return <Chip key={key} label={opt.nome} size="small" {...rest} />;
+                      })
+                    }
+                    noOptionsText="Cadastre cargos na aba Cargos e Vagas"
                   />
                 </Grid>
               </Grid>
