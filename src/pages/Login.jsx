@@ -134,6 +134,8 @@ export default function Login({ onBack, onSuccess }) {
   const [regPassword, setRegPassword] = useState('');
   const [regError,    setRegError]    = useState('');
   const [regLoading,  setRegLoading]  = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [resendMsg,   setResendMsg]   = useState('');
 
   // Login
   const [loginEmail,    setLoginEmail]    = useState('');
@@ -176,6 +178,7 @@ export default function Login({ onBack, onSuccess }) {
       });
       const data = await res.json();
       if (!res.ok) return setRegError(data.error || 'Erro ao cadastrar.');
+      if (data.pending) { setPendingEmail(regEmail); return; }
       onSuccess(data.user);
     } catch {
       setRegError('Erro de conexão. Tente novamente.');
@@ -215,6 +218,7 @@ export default function Login({ onBack, onSuccess }) {
         body: JSON.stringify({ email: loginEmail, password: loginPassword, recaptchaToken }),
       });
       const data = await res.json();
+      if (res.status === 403) { setPendingEmail(loginEmail); return; }
       if (!res.ok) return setLoginError(data.error || 'Credenciais incorretas.');
       onSuccess(data.user);
     } catch {
@@ -223,6 +227,70 @@ export default function Login({ onBack, onSuccess }) {
       setLoginLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResendMsg('');
+    try {
+      await fetch('/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail }),
+      });
+      setResendMsg('E-mail reenviado! Verifique sua caixa de entrada.');
+    } catch {
+      setResendMsg('Erro ao reenviar. Tente novamente.');
+    }
+  };
+
+  // ── Tela de verificação pendente ──────────────────────────────────────────
+  if (pendingEmail) {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col">
+        <header className="bg-white border-b border-border px-6 h-16 flex items-center justify-between shrink-0">
+          <button
+            onClick={() => setPendingEmail('')}
+            className="flex items-center gap-2 text-text-muted hover:text-primary transition-colors text-sm font-medium"
+          >
+            <ArrowLeft size={16} />
+            Voltar ao login
+          </button>
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm font-heading">
+            AG
+          </div>
+        </header>
+        <div className="flex-1 flex items-start justify-center pt-16 px-4">
+          <div className="bg-white rounded-2xl border border-border p-10 shadow-sm max-w-md w-full text-center flex flex-col items-center gap-5">
+            <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-text font-heading">Verifique seu e-mail</h2>
+            <p className="text-sm text-text-muted leading-relaxed">
+              Enviamos um link de confirmação para<br />
+              <strong className="text-text">{pendingEmail}</strong><br />
+              O link expira em <strong>30 minutos</strong>.
+            </p>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={handleResend}
+                className="w-full py-2.5 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors"
+              >
+                Reenviar e-mail
+              </button>
+              {resendMsg && (
+                <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
+                  {resendMsg}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">

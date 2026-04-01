@@ -2,7 +2,9 @@ import { Router } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import pool from '../db.js';
+import { sendVerificationEmail } from '../mail.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,17 +83,22 @@ router.post('/register', async (req, res) => {
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const { rows } = await pool.query(`
-      INSERT INTO users (name, email, phone, password_hash)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `, [name.trim(), email.trim().toLowerCase(), phoneClean, passwordHash]);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
 
-    const user = userPayload(rows[0]);
-    req.logIn(user, (err) => {
-      if (err) return res.status(500).json({ error: 'Erro ao autenticar.' });
-      req.session.save(() => res.json({ ok: true, user }));
-    });
+    await pool.query(`
+      INSERT INTO users (name, email, phone, password_hash, verification_token, verification_expires)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [name.trim(), email.trim().toLowerCase(), phoneClean, passwordHash, token, expires]);
+
+    try {
+      await sendVerificationEmail(email.trim().toLowerCase(), name.trim(), token);
+    } catch (mailErr) {
+      console.error('Mail error:', mailErr.message);
+      return res.json({ ok: true, pending: true, mailError: true });
+    }
+
+    res.json({ ok: true, pending: true });
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'E-mail já cadastrado. Tente entrar.' });
     return res.status(500).json({ error: 'Erro interno. Tente novamente.' });
@@ -115,6 +122,7 @@ router.post('/login', async (req, res) => {
 
     if (!u) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
     if (!u.password_hash) return res.status(401).json({ error: 'Esta conta usa login com Google. Clique em "Entrar com Google".' });
+    if (!u.email_verified) return res.status(403).json({ error: 'E-mail ainda não confirmado. Verifique sua caixa de entrada.' });
 
     const match = await bcrypt.compare(password, u.password_hash);
     if (!match) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
@@ -150,6 +158,60 @@ router.get('/google/callback', (req, res, next) => {
       req.session.save(() => res.redirect(`${process.env.FRONTEND_URL}/?aluno=1`));
     });
   })(req, res, next);
+});
+
+// ── VERIFICAÇÃO DE E-MAIL ─────────────────────────────────────────────────
+
+router.get('/verify/:token', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE users
+         SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL
+       WHERE verification_token = $1 AND verification_expires > NOW() AND email_verified = FALSE
+       RETURNING *`,
+      [req.params.token]
+    );
+
+    if (!rows[0]) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verify_error=expired`);
+    }
+
+    const user = userPayload(rows[0]);
+    req.logIn(user, (err) => {
+      if (err) return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verify_error=auth`);
+      req.session.save(() =>
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verified=1`)
+      );
+    });
+  } catch {
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verify_error=server`);
+  }
+});
+
+router.post('/resend-verification', async (req, res) => {
+  const { email } = req.body;
+  if (!email?.trim()) return res.status(400).json({ error: 'Informe o e-mail.' });
+
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    const u = rows[0];
+
+    if (!u || u.email_verified || !u.password_hash)
+      return res.json({ ok: true }); // não revelar se existe
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
+
+    await pool.query(
+      'UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3',
+      [token, expires, u.id]
+    );
+
+    await sendVerificationEmail(u.email, u.name, token);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao reenviar. Tente novamente.' });
+  }
 });
 
 // ── ME / LOGOUT ───────────────────────────────────────────────────────────────

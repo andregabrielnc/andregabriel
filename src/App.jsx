@@ -62,13 +62,20 @@ function App() {
     const params     = new URLSearchParams(window.location.search);
     const wantsAluno = params.get('aluno') === '1';
     const loginError = params.get('login_error');
+    const verified   = params.get('verified') === '1';
+    const verifyErr  = params.get('verify_error');
 
-    if (wantsAluno) {
+    if (wantsAluno || verified || verifyErr) {
       window.history.replaceState({}, '', '/');
     }
 
     if (loginError) {
-      // Keep login_error in URL so Login component can read it, then clean up
+      setAuthChecked(true);
+      setPage('login');
+      return;
+    }
+
+    if (verifyErr) {
       setAuthChecked(true);
       setPage('login');
       return;
@@ -80,8 +87,7 @@ function App() {
         if (data.user) {
           setUser(data.user);
           const savedPage = sessionStorage.getItem('lastPage');
-          if (wantsAluno) {
-            // Google OAuth redirect back → show welcome modal then go to aluno
+          if (verified || wantsAluno) {
             setWelcomeUser(data.user);
             setPage('welcome');
           } else if (savedPage === 'aluno') {

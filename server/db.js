@@ -105,6 +105,9 @@ export async function initDb() {
     -- Migração incremental para tabelas já existentes
     ALTER TABLE users ADD COLUMN IF NOT EXISTS role          TEXT NOT NULL DEFAULT 'temporario';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified      BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token  TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires TIMESTAMPTZ;
 
     CREATE TABLE IF NOT EXISTS session (
       sid    VARCHAR NOT NULL COLLATE "default",
