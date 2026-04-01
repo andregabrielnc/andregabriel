@@ -44,7 +44,7 @@ app.use(cors({
 // ── Rate limiting ────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
-  max: 15,
+  max: process.env.NODE_ENV === 'development' ? 100 : 15,
   message: { error: 'Muitas tentativas. Aguarde 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,

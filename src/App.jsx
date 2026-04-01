@@ -57,6 +57,7 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser]           = useState(null);
   const [welcomeUser, setWelcomeUser] = useState(null);
+  const [resetToken, setResetToken]   = useState('');
 
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search);
@@ -64,9 +65,17 @@ function App() {
     const loginError = params.get('login_error');
     const verified   = params.get('verified') === '1';
     const verifyErr  = params.get('verify_error');
+    const resetParam = params.get('reset');
 
-    if (wantsAluno || verified || verifyErr) {
+    if (wantsAluno || verified || verifyErr || resetParam) {
       window.history.replaceState({}, '', '/');
+    }
+
+    if (resetParam) {
+      setResetToken(resetParam);
+      setAuthChecked(true);
+      setPage('login');
+      return;
     }
 
     if (loginError) {
@@ -142,8 +151,9 @@ function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <Login
-          onBack={() => setPage('home')}
-          onSuccess={(u) => { setUser(u); setWelcomeUser(u); setPage('welcome'); }}
+          onBack={() => { setPage('home'); setResetToken(''); }}
+          onSuccess={(u) => { setUser(u); setWelcomeUser(u); setPage('welcome'); setResetToken(''); }}
+          resetToken={resetToken}
         />
         <Toaster position="top-right" richColors closeButton />
       </Suspense>

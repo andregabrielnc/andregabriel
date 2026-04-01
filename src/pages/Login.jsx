@@ -126,7 +126,7 @@ const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-border text-sm tex
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function Login({ onBack, onSuccess }) {
+export default function Login({ onBack, onSuccess, resetToken: initialResetToken }) {
   // Register
   const [regName,     setRegName]     = useState('');
   const [regEmail,    setRegEmail]    = useState('');
@@ -143,6 +143,20 @@ export default function Login({ onBack, onSuccess }) {
   const [loginError,    setLoginError]    = useState('');
   const [loginLoading,  setLoginLoading]  = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Forgot password
+  const [showForgot,    setShowForgot]    = useState(false);
+  const [forgotEmail,   setForgotEmail]   = useState('');
+  const [forgotMsg,     setForgotMsg]     = useState('');
+  const [forgotError,   setForgotError]   = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  // Reset password
+  const [resetToken,    setResetToken]    = useState(initialResetToken || '');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetError,    setResetError]    = useState('');
+  const [resetLoading,  setResetLoading]  = useState(false);
+  const [resetSuccess,  setResetSuccess]  = useState(false);
 
   const { ready, execute } = useRecaptcha();
 
@@ -228,6 +242,56 @@ export default function Login({ onBack, onSuccess }) {
     }
   };
 
+  // ── Forgot password ────────────────────────────────────────────────────
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotMsg('');
+    if (!forgotEmail.trim() || !/\S+@\S+\.\S+/.test(forgotEmail))
+      return setForgotError('Informe um e-mail válido.');
+
+    setForgotLoading(true);
+    try {
+      const res = await fetch('/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) return setForgotError(data.error);
+      setForgotMsg('Se o e-mail estiver cadastrado, você receberá um link de redefinição.');
+    } catch {
+      setForgotError('Erro de conexão. Tente novamente.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // ── Reset password ────────────────────────────────────────────────────
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    if (resetPassword.length < 6) return setResetError('Senha deve ter ao menos 6 caracteres.');
+    if (!/[a-zA-Z]/.test(resetPassword)) return setResetError('Senha deve conter ao menos 1 letra.');
+    if (!/[0-9]/.test(resetPassword)) return setResetError('Senha deve conter ao menos 1 número.');
+
+    setResetLoading(true);
+    try {
+      const res = await fetch('/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, password: resetPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) return setResetError(data.error);
+      setResetSuccess(true);
+    } catch {
+      setResetError('Erro de conexão. Tente novamente.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const handleResend = async () => {
     setResendMsg('');
     try {
@@ -242,58 +306,171 @@ export default function Login({ onBack, onSuccess }) {
     }
   };
 
-  // ── Tela de verificação pendente ──────────────────────────────────────────
-  if (pendingEmail) {
+  // ── Tela de redefinição de senha ────────────────────────────────────────
+  if (resetToken) {
     return (
       <div className="min-h-screen bg-bg flex flex-col">
         <header className="bg-white border-b border-border px-6 h-16 flex items-center justify-between shrink-0">
           <button
-            onClick={() => setPendingEmail('')}
+            onClick={() => { setResetToken(''); setResetSuccess(false); }}
             className="flex items-center gap-2 text-text-muted hover:text-primary transition-colors text-sm font-medium"
           >
             <ArrowLeft size={16} />
             Voltar ao login
           </button>
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm font-heading">
-            AG
-          </div>
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm font-heading">AG</div>
         </header>
         <div className="flex-1 flex items-start justify-center pt-16 px-4">
-          <div className="bg-white rounded-2xl border border-border p-10 shadow-sm max-w-md w-full text-center flex flex-col items-center gap-5">
+          <div className="bg-white rounded-2xl border border-border p-10 shadow-sm max-w-sm w-full flex flex-col items-center gap-5">
             <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-text font-heading">Verifique seu e-mail</h2>
-            <p className="text-sm text-text-muted leading-relaxed">
-              Enviamos um link de confirmação para<br />
-              <strong className="text-text">{pendingEmail}</strong><br />
-              O link expira em <strong>30 minutos</strong>.
-            </p>
-            <div className="flex flex-col gap-2 w-full">
-              <button
-                onClick={handleResend}
-                className="w-full py-2.5 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors"
-              >
-                Reenviar e-mail
-              </button>
-              {resendMsg && (
-                <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
-                  {resendMsg}
-                </p>
-              )}
-            </div>
-            <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
+            {resetSuccess ? (
+              <>
+                <h2 className="text-xl font-bold text-text font-heading">Senha redefinida!</h2>
+                <p className="text-sm text-text-muted text-center">Sua senha foi alterada com sucesso. Agora você pode entrar.</p>
+                <button
+                  onClick={() => { setResetToken(''); setResetSuccess(false); }}
+                  className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Ir para o login
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-text font-heading">Nova senha</h2>
+                <p className="text-sm text-text-muted text-center">Crie uma nova senha para sua conta.</p>
+                <form onSubmit={handleReset} className="flex flex-col gap-3 w-full">
+                  <PasswordInput
+                    value={resetPassword}
+                    onChange={setResetPassword}
+                    placeholder="Nova senha"
+                    className={inputCls}
+                  />
+                  {resetPassword && <PasswordRules password={resetPassword} />}
+                  <ErrorBox msg={resetError} />
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
+                  >
+                    {resetLoading ? 'Aguarde...' : 'Redefinir senha'}
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // ── Modal "Esqueceu a senha?" ─────────────────────────────────────────
+  const forgotModal = showForgot ? (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={() => setShowForgot(false)} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full flex flex-col items-center gap-5">
+        <button
+          onClick={() => setShowForgot(false)}
+          className="absolute top-4 right-4 text-text-muted hover:text-text transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h2 className="text-lg font-bold text-text font-heading">Esqueceu a senha?</h2>
+        <p className="text-sm text-text-muted text-center">
+          Informe seu e-mail cadastrado e enviaremos um link para redefinir sua senha.
+        </p>
+        {forgotMsg ? (
+          <div className="w-full">
+            <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-center">{forgotMsg}</p>
+            <button
+              onClick={() => { setShowForgot(false); setForgotMsg(''); setForgotEmail(''); }}
+              className="w-full py-2.5 mt-3 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleForgot} className="flex flex-col gap-3 w-full">
+            <input
+              type="email"
+              value={forgotEmail}
+              onChange={e => setForgotEmail(e.target.value)}
+              placeholder="seu@email.com"
+              className={inputCls}
+              autoFocus
+            />
+            <ErrorBox msg={forgotError} />
+            <button
+              type="submit"
+              disabled={forgotLoading}
+              className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
+            >
+              {forgotLoading ? 'Enviando...' : 'Enviar link de redefinição'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  // ── Modal de verificação pendente ───────────────────────────────────────
+  const verifyModal = pendingEmail ? (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={() => setPendingEmail('')} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center flex flex-col items-center gap-5 animate-[fadeIn_0.2s_ease-out]">
+        <button
+          onClick={() => setPendingEmail('')}
+          className="absolute top-4 right-4 text-text-muted hover:text-text transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-text font-heading">Verifique seu e-mail</h2>
+        <p className="text-sm text-text-muted leading-relaxed">
+          Enviamos um link de confirmação para<br />
+          <strong className="text-text">{pendingEmail}</strong><br />
+          O link expira em <strong>30 minutos</strong>.
+        </p>
+        <div className="flex flex-col gap-2 w-full">
+          <button
+            onClick={handleResend}
+            className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Reenviar e-mail
+          </button>
+          {resendMsg && (
+            <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
+              {resendMsg}
+            </p>
+          )}
+        </div>
+        <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="min-h-screen bg-bg flex flex-col">
+
+      {verifyModal}
+      {forgotModal}
 
       {/* Header */}
       <header className="bg-white border-b border-border px-6 h-16 flex items-center justify-between shrink-0">
@@ -434,6 +611,13 @@ export default function Login({ onBack, onSuccess }) {
                   placeholder="••••••"
                   className={inputCls}
                 />
+                <button
+                  type="button"
+                  onClick={() => { setShowForgot(true); setForgotEmail(loginEmail); }}
+                  className="text-xs text-primary hover:text-primary-dark mt-1.5 font-medium transition-colors"
+                >
+                  Esqueceu a senha?
+                </button>
               </div>
 
               <ErrorBox msg={loginError} />

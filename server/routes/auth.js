@@ -4,7 +4,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import pool from '../db.js';
-import { sendVerificationEmail } from '../mail.js';
+import { sendVerificationEmail, sendResetEmail } from '../mail.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -211,6 +211,62 @@ router.post('/resend-verification', async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro ao reenviar. Tente novamente.' });
+  }
+});
+
+// ── ESQUECEU A SENHA ──────────────────────────────────────────────────────
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email?.trim()) return res.status(400).json({ error: 'Informe o e-mail.' });
+
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    const u = rows[0];
+
+    // Não revelar se o email existe
+    if (!u || !u.password_hash) return res.json({ ok: true });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
+
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3',
+      [token, expires, u.id]
+    );
+
+    await sendResetEmail(u.email, u.name, token);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao enviar. Tente novamente.' });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) return res.status(400).json({ error: 'Dados inválidos.' });
+  if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter ao menos 6 caracteres.' });
+  if (!/[a-zA-Z]/.test(password)) return res.status(400).json({ error: 'Senha deve conter ao menos 1 letra.' });
+  if (!/[0-9]/.test(password)) return res.status(400).json({ error: 'Senha deve conter ao menos 1 número.' });
+
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM users WHERE reset_token = $1 AND reset_expires > NOW()',
+      [token]
+    );
+    const u = rows[0];
+    if (!u) return res.status(400).json({ error: 'Link expirado ou inválido. Solicite novamente.' });
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_expires = NULL, email_verified = TRUE WHERE id = $2',
+      [passwordHash, u.id]
+    );
+
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro interno. Tente novamente.' });
   }
 });
 
