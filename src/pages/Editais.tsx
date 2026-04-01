@@ -1136,209 +1136,119 @@ const EditaisPage: React.FC = () => {
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 2 && (
         <Box>
-          {/* Conhecimentos Básicos */}
+          {/* ── Conhecimentos Básicos ── */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" fontWeight="bold">Conhecimentos Básicos</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      size="small"
-                      checked={todosCargosBasicos}
-                      onChange={(e) => setTodosCargosBasicos(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={<Typography variant="caption" color="text.secondary" noWrap>Aplica-se a todos os cargos</Typography>}
-                  sx={{ mr: 0 }}
-                />
-                <Button size="small" startIcon={<Add />} onClick={addConteudoBasico}>
-                  Adicionar Tópico
-                </Button>
-                <Tooltip title="Salvar">
-                  <IconButton size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 32, height: 32 }}>
-                    {saving ? <CircularProgress size={16} color="inherit" /> : <Save sx={{ fontSize: 16 }} />}
-                  </IconButton>
-                </Tooltip>
-              </Box>
+              <Typography variant="subtitle1" fontWeight="bold">Conhecimentos Básicos</Typography>
+              <FormControlLabel
+                control={<Switch size="small" checked={todosCargosBasicos} onChange={(e) => setTodosCargosBasicos(e.target.checked)} color="primary" />}
+                label={<Typography variant="caption" color="text.secondary" noWrap>Aplica-se a todos os cargos</Typography>}
+                sx={{ mr: 0 }}
+              />
             </Box>
 
             {conteudosBasicos.map((item, index) => (
               <Box key={item.id} sx={{ mb: 1.5 }}>
-                {/* Tópico principal */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Chip label={index + 1} size="small" sx={{ minWidth: 32 }} />
-                  <TextField
-                    value={item.titulo}
-                    onChange={(e) => updateConteudoBasico(item.id, e.target.value)}
-                    sx={{ flex: 1 }}
-                    size="small"
-                    placeholder="Tópico"
-                  />
-                  <Tooltip title="Adicionar Sub-tópico">
-                    <IconButton size="small" color="primary" onClick={() => addSubTopicoBasico(item.id)}>
-                      <Add fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Excluir Tópico">
-                    <IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <TextField value={item.titulo} onChange={(e) => updateConteudoBasico(item.id, e.target.value)} sx={{ flex: 1 }} size="small" placeholder="Tópico" />
+                  <Tooltip title="Adicionar Sub-tópico"><IconButton size="small" color="primary" onClick={() => addSubTopicoBasico(item.id)}><Add fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Excluir Tópico"><IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                 </Box>
-                {/* Sub-tópicos */}
                 {(item.subtopicos || []).map((sub, sIdx) => (
                   <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5, mt: 0.5 }}>
                     <Chip label={`${index + 1}.${sIdx + 1}`} size="small" variant="outlined" sx={{ minWidth: 40 }} />
-                    <TextField
-                      value={sub.titulo}
-                      onChange={(e) => updateSubTopicoBasico(item.id, sub.id, e.target.value)}
-                      sx={{ flex: 1 }}
-                      size="small"
-                      placeholder="Sub-tópico"
-                    />
-                    <Tooltip title="Excluir Sub-tópico">
-                      <IconButton size="small" color="error" onClick={() => removeSubTopicoBasico(item.id, sub.id)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <TextField value={sub.titulo} onChange={(e) => updateSubTopicoBasico(item.id, sub.id, e.target.value)} sx={{ flex: 1 }} size="small" placeholder="Sub-tópico" />
+                    <Tooltip title="Excluir Sub-tópico"><IconButton size="small" color="error" onClick={() => removeSubTopicoBasico(item.id, sub.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                   </Box>
                 ))}
               </Box>
             ))}
 
             {conteudosBasicos.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                Nenhum tópico adicionado.
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Nenhum tópico adicionado.</Typography>
             )}
+
+            {/* Footer: Adicionar + Salvar */}
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Button size="small" startIcon={<Add />} onClick={addConteudoBasico} sx={{ textTransform: 'none' }}>
+                Adicionar Tópico
+              </Button>
+              <Button size="small" variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}>
+                Salvar
+              </Button>
+            </Box>
           </Paper>
 
-          {/* Conhecimentos Específicos */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" fontWeight="bold">Conhecimentos Específicos</Typography>
-            <Button size="small" startIcon={<Add />} onClick={addDisciplina}>
-              Adicionar Disciplina
-            </Button>
-          </Box>
+          {/* ── Conhecimentos Específicos ── */}
+          <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Conhecimentos Específicos</Typography>
 
           {conteudosEspecificos.map((disc) => (
             <Paper key={disc.id} sx={{ p: 3, mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">Disciplina</Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <Tooltip title="Salvar">
-                    <IconButton size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 32, height: 32 }}>
-                      {saving ? <CircularProgress size={16} color="inherit" /> : <Save sx={{ fontSize: 16 }} />}
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Excluir Disciplina">
-                    <IconButton size="small" color="error" onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
+              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
+                {disc.nome || 'Disciplina'}
+              </Typography>
+
               <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    label="Nome da Disciplina"
-                    value={disc.nome}
-                    onChange={(e) => updateDisciplina(disc.id, 'nome', e.target.value)}
-                    fullWidth
-                  />
+                  <TextField label="Nome da Disciplina" value={disc.nome} onChange={(e) => updateDisciplina(disc.id, 'nome', e.target.value)} fullWidth />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Autocomplete
-                    multiple
-                    options={cargos}
-                    getOptionLabel={(opt) => opt.nome || ''}
+                    multiple options={cargos} getOptionLabel={(opt) => opt.nome || ''}
                     value={cargos.filter(c => (disc.cargos_aplicaveis || []).includes(c.id))}
                     onChange={(_e, selected) => updateDisciplina(disc.id, 'cargos_aplicaveis', selected.map(c => c.id))}
                     isOptionEqualToValue={(opt, val) => opt.id === val.id}
-                    renderInput={(params) => (
-                      <TextField {...params} label="Cargos Aplicáveis" placeholder="Pesquisar cargo..." />
-                    )}
-                    renderTags={(value, getTagProps) =>
-                      value.map((opt, index) => {
-                        const { key, ...rest } = getTagProps({ index });
-                        return <Chip key={key} label={opt.nome} size="small" {...rest} />;
-                      })
-                    }
+                    renderInput={(params) => <TextField {...params} label="Cargos Aplicáveis" placeholder="Pesquisar cargo..." />}
+                    renderTags={(value, getTagProps) => value.map((opt, index) => { const { key, ...rest } = getTagProps({ index }); return <Chip key={key} label={opt.nome} size="small" {...rest} />; })}
                     noOptionsText="Cadastre cargos na aba Cargos e Vagas"
                   />
                 </Grid>
               </Grid>
 
-              <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                Tópicos
-              </Typography>
+              <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>Tópicos</Typography>
 
               {disc.topicos.map((topico, tIdx) => (
                 <Box key={topico.id} sx={{ mb: 2, pl: 1 }}>
-                  {/* Tópico row */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                     <Chip label={tIdx + 1} size="small" sx={{ minWidth: 32 }} />
-                    <TextField
-                      value={topico.titulo}
-                      onChange={(e) => updateTopico(disc.id, topico.id, e.target.value)}
-                      fullWidth
-                      size="small"
-                      placeholder="Tópico"
-                    />
-                    <Tooltip title="Adicionar subtópico">
-                      <IconButton size="small" onClick={() => addSubTopico(disc.id, topico.id)}>
-                        <Add fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <IconButton size="small" color="error" onClick={() => removeTopico(disc.id, topico.id)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    <TextField value={topico.titulo} onChange={(e) => updateTopico(disc.id, topico.id, e.target.value)} fullWidth size="small" placeholder="Tópico" />
+                    <Tooltip title="Adicionar subtópico"><IconButton size="small" onClick={() => addSubTopico(disc.id, topico.id)}><Add fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Excluir tópico"><IconButton size="small" color="error" onClick={() => removeTopico(disc.id, topico.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                   </Box>
-
-                  {/* Subtópicos */}
                   {topico.subtopicos.map((sub, sIdx) => (
                     <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5, mb: 0.5 }}>
-                      <Chip
-                        label={`${tIdx + 1}.${sIdx + 1}`}
-                        size="small"
-                        variant="outlined"
-                        sx={{ minWidth: 40 }}
-                      />
-                      <TextField
-                        value={sub.titulo}
-                        onChange={(e) => updateSubTopico(disc.id, topico.id, sub.id, e.target.value)}
-                        fullWidth
-                        size="small"
-                        placeholder="Subtópico"
-                      />
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => removeSubTopico(disc.id, topico.id, sub.id)}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      <Chip label={`${tIdx + 1}.${sIdx + 1}`} size="small" variant="outlined" sx={{ minWidth: 40 }} />
+                      <TextField value={sub.titulo} onChange={(e) => updateSubTopico(disc.id, topico.id, sub.id, e.target.value)} fullWidth size="small" placeholder="Subtópico" />
+                      <Tooltip title="Excluir subtópico"><IconButton size="small" color="error" onClick={() => removeSubTopico(disc.id, topico.id, sub.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                     </Box>
                   ))}
                 </Box>
               ))}
 
-              <Box sx={{ mt: 1 }}>
-                <Button size="small" startIcon={<Add />} onClick={() => addTopico(disc.id)}>
+              {/* Footer: Adicionar Tópico + Salvar + Excluir */}
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Button size="small" startIcon={<Add />} onClick={() => addTopico(disc.id)} sx={{ textTransform: 'none' }}>
                   Adicionar Tópico
                 </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button size="small" variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}>
+                    Salvar
+                  </Button>
+                  <Button size="small" variant="outlined" color="error" startIcon={<Delete />} onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })} sx={{ textTransform: 'none' }}>
+                    Excluir
+                  </Button>
+                </Box>
               </Box>
             </Paper>
           ))}
 
-          {conteudosEspecificos.length === 0 && (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">Nenhuma disciplina adicionada.</Typography>
-            </Paper>
-          )}
-
+          {/* Adicionar Disciplina (dashed, full width) */}
+          <Button variant="outlined" startIcon={<Add />} onClick={addDisciplina} fullWidth sx={{ color: PRIMARY, borderColor: PRIMARY, borderStyle: 'dashed', py: 1.5, textTransform: 'none', fontSize: '0.9rem' }}>
+            Adicionar Disciplina
+          </Button>
         </Box>
       )}
 
@@ -1346,24 +1256,12 @@ const EditaisPage: React.FC = () => {
           TAB 4 — Anexos
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 3 && (
-        <Box>
+        <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<Add />}
-              onClick={() => openAnexoModal()}
-              sx={{ color: PRIMARY, borderColor: PRIMARY }}
-            >
-              Adicionar Anexo
-            </Button>
-            <Tooltip title="Salvar">
-              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 36, height: 36 }}>
-                {saving ? <CircularProgress size={18} color="inherit" /> : <Save fontSize="small" />}
-              </IconButton>
-            </Tooltip>
+            <Typography variant="subtitle1" fontWeight="bold">Anexos do Edital</Typography>
           </Box>
 
-          <TableContainer component={Paper}>
+          <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
@@ -1396,11 +1294,7 @@ const EditaisPage: React.FC = () => {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Excluir">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => setDeleteAnexoDialog({ open: true, anexoId: anexo.id })}
-                        >
+                        <IconButton size="small" color="error" onClick={() => setDeleteAnexoDialog({ open: true, anexoId: anexo.id })}>
                           <Delete fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -1420,7 +1314,17 @@ const EditaisPage: React.FC = () => {
             </Table>
           </TableContainer>
 
-        </Box>
+          {/* Footer: Adicionar + Salvar */}
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Button size="small" startIcon={<Add />} onClick={() => openAnexoModal()} sx={{ textTransform: 'none' }}>
+              Adicionar Anexo
+            </Button>
+            <Button size="small" variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}>
+              Salvar
+            </Button>
+          </Box>
+        </Paper>
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════
