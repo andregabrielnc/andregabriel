@@ -57,7 +57,6 @@ interface Cargo {
   remuneracao: string;
   carga_horaria: string;
   requisitos: string;
-  regime: 'CLT' | 'Estatutário';
 }
 
 /** Calcula distribuição de vagas de um cargo a partir das cotas do edital */
@@ -116,6 +115,7 @@ interface Edital {
   orgao: string;
   banca: string;
   link_banca: string;
+  regime: 'CLT' | 'Estatutário';
   status: 'publicado' | 'inscricoes_abertas' | 'em_andamento' | 'encerrado' | 'homologado';
   data_publicacao: string;
   data_inscricao_inicio: string;
@@ -159,6 +159,7 @@ const emptyEdital = (): EditalFormFields => ({
   orgao: '',
   banca: '',
   link_banca: '',
+  regime: 'CLT',
   status: 'publicado',
   data_publicacao: '',
   data_inscricao_inicio: '',
@@ -179,7 +180,6 @@ const emptyCargo = (): Cargo => ({
   remuneracao: '',
   carga_horaria: '',
   requisitos: '',
-  regime: 'CLT',
 });
 
 const emptyAnexo = (): Anexo => ({
@@ -285,6 +285,7 @@ const EditaisPage: React.FC = () => {
         orgao: data.orgao || '',
         banca: data.banca || '',
         link_banca: data.link_banca || '',
+        regime: data.regime || 'CLT',
         status: data.status || 'publicado',
         data_publicacao: normalizeDate(data.data_publicacao),
         data_inscricao_inicio: normalizeDate(data.data_inscricao_inicio),
@@ -881,13 +882,30 @@ const EditaisPage: React.FC = () => {
               />
             </Grid>
 
-            {/* Link da Banca (full width) */}
-            <Grid size={{ xs: 12 }}>
+            {/* Link da Banca */}
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="link_banca"
                 control={control}
                 render={({ field }) => (
                   <TextField {...field} label="Link da Banca" type="url" fullWidth />
+                )}
+              />
+            </Grid>
+
+            {/* Regime */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Controller
+                name="regime"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth>
+                    <InputLabel>Regime</InputLabel>
+                    <Select {...field} label="Regime">
+                      <MenuItem value="CLT">CLT</MenuItem>
+                      <MenuItem value="Estatutário">Estatutário</MenuItem>
+                    </Select>
+                  </FormControl>
                 )}
               />
             </Grid>
@@ -1041,9 +1059,9 @@ const EditaisPage: React.FC = () => {
                 </Grid>
               </Grid>
 
-              {/* Row 2: Remuneração, Carga Horária, Regime */}
+              {/* Row 2: Remuneração, Carga Horária */}
               <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     label="Remuneração"
                     value={cargo.remuneracao}
@@ -1052,7 +1070,7 @@ const EditaisPage: React.FC = () => {
                     placeholder="R$ 5.420,00"
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     label="Carga Horária"
                     value={cargo.carga_horaria}
@@ -1060,19 +1078,6 @@ const EditaisPage: React.FC = () => {
                     fullWidth
                     placeholder="40h semanais"
                   />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>Regime</InputLabel>
-                    <Select
-                      value={cargo.regime}
-                      label="Regime"
-                      onChange={(e) => updateCargo(cargo.id, 'regime', e.target.value)}
-                    >
-                      <MenuItem value="CLT">CLT</MenuItem>
-                      <MenuItem value="Estatutário">Estatutário</MenuItem>
-                    </Select>
-                  </FormControl>
                 </Grid>
               </Grid>
 
