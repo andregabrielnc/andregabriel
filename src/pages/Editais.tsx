@@ -80,10 +80,15 @@ interface Anexo {
   dados: string;     // base64 data URL
 }
 
+interface SubTopicoBasico {
+  id: string;
+  titulo: string;
+}
+
 interface TopicoBasico {
   id: string;
   titulo: string;
-  todos_cargos: boolean;
+  subtopicos: SubTopicoBasico[];
 }
 
 interface SubTopico {
@@ -120,6 +125,7 @@ interface Edital {
   data_impugnacao_fim: string;
   taxa_inscricao: string;
   observacoes: string;
+  todos_cargos_basicos: boolean;
   cotas: CotaEdital[];
   cargos: Cargo[];
   anexos: Anexo[];
@@ -141,8 +147,10 @@ const normalizeDate = (d: string | undefined | null): string =>
 
 const formatDateBR = (d: string | undefined | null): string => {
   if (!d) return '';
-  const date = new Date(d + 'T00:00:00');
-  return date.toLocaleDateString('pt-BR');
+  const clean = String(d).slice(0, 10); // "2025-03-15T00:00:00.000Z" → "2025-03-15"
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return '';
+  const [y, m, day] = clean.split('-');
+  return `${day}/${m}/${y}`;
 };
 
 const emptyEdital = (): EditalFormFields => ({
@@ -257,6 +265,7 @@ const EditaisPage: React.FC = () => {
     setIsNew(true);
     setEditing({} as Edital);
     reset(emptyEdital());
+    setTodosCargosBasicos(true);
     setCotas([]);
     setCargos([]);
     setAnexos([]);
@@ -289,6 +298,7 @@ const EditaisPage: React.FC = () => {
         taxa_inscricao: data.taxa_inscricao || '',
         observacoes: data.observacoes || '',
       });
+      setTodosCargosBasicos(data.todos_cargos_basicos !== false);
       setCotas(data.cotas || []);
       setCargos(data.cargos || []);
       setAnexos(data.anexos || []);
@@ -310,6 +320,7 @@ const EditaisPage: React.FC = () => {
     setSaving(true);
     const payload: Edital = {
       ...formData,
+      todos_cargos_basicos: todosCargosBasicos,
       cotas,
       cargos,
       anexos,
@@ -327,8 +338,13 @@ const EditaisPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Erro ao salvar');
+      const saved = await res.json();
       setSnack({ open: true, message: 'Edital salvo com sucesso!', severity: 'success' });
-      setEditing(null);
+      // Stay on the form — update editing with saved data (keeps ID for new editals)
+      if (isNew) {
+        setIsNew(false);
+        setEditing(saved);
+      }
       fetchEditais();
     } catch {
       setSnack({ open: true, message: 'Erro ao salvar edital', severity: 'error' });
@@ -386,14 +402,33 @@ const EditaisPage: React.FC = () => {
   // Conteúdos Básicos Helpers
   // ═══════════════════════════════════════════════════════════════════════════
 
+  const [todosCargosBasicos, setTodosCargosBasicos] = useState(true);
+
   const addConteudoBasico = () =>
-    setConteudosBasicos(prev => [...prev, { id: uid(), titulo: '', todos_cargos: true }]);
+    setConteudosBasicos(prev => [...prev, { id: uid(), titulo: '', subtopicos: [] }]);
 
   const updateConteudoBasico = (id: string, titulo: string) =>
     setConteudosBasicos(prev => prev.map(c => c.id === id ? { ...c, titulo } : c));
 
   const removeConteudoBasico = (id: string) =>
     setConteudosBasicos(prev => prev.filter(c => c.id !== id));
+
+  const addSubTopicoBasico = (topicoId: string) =>
+    setConteudosBasicos(prev => prev.map(t =>
+      t.id === topicoId ? { ...t, subtopicos: [...t.subtopicos, { id: uid(), titulo: '' }] } : t
+    ));
+
+  const updateSubTopicoBasico = (topicoId: string, subId: string, titulo: string) =>
+    setConteudosBasicos(prev => prev.map(t =>
+      t.id === topicoId
+        ? { ...t, subtopicos: t.subtopicos.map(s => s.id === subId ? { ...s, titulo } : s) }
+        : t
+    ));
+
+  const removeSubTopicoBasico = (topicoId: string, subId: string) =>
+    setConteudosBasicos(prev => prev.map(t =>
+      t.id === topicoId ? { ...t, subtopicos: t.subtopicos.filter(s => s.id !== subId) } : t
+    ));
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Disciplina / Tópico / SubTópico Helpers
@@ -1076,37 +1111,64 @@ const EditaisPage: React.FC = () => {
           <Paper sx={{ p: 3, mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">Conhecimentos Básicos</Typography>
-              <Button size="small" startIcon={<Add />} onClick={addConteudoBasico}>
-                Adicionar
-              </Button>
-            </Box>
-
-            {conteudosBasicos.map((item, index) => (
-              <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Chip label={index + 1} size="small" sx={{ minWidth: 32 }} />
-                <TextField
-                  value={item.titulo}
-                  onChange={(e) => updateConteudoBasico(item.id, e.target.value)}
-                  sx={{ flex: 1 }}
-                  size="small"
-                  placeholder="Tópico"
-                />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <FormControlLabel
                   control={
                     <Switch
                       size="small"
-                      checked={item.todos_cargos !== false}
-                      onChange={(e) => setConteudosBasicos(prev =>
-                        prev.map(c => c.id === item.id ? { ...c, todos_cargos: e.target.checked } : c)
-                      )}
+                      checked={todosCargosBasicos}
+                      onChange={(e) => setTodosCargosBasicos(e.target.checked)}
+                      color="primary"
                     />
                   }
-                  label={<Typography variant="caption" color="text.secondary" noWrap>Todos os cargos</Typography>}
-                  sx={{ mr: 0, minWidth: 140 }}
+                  label={<Typography variant="caption" color="text.secondary" noWrap>Aplica-se a todos os cargos</Typography>}
+                  sx={{ mr: 0 }}
                 />
-                <IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}>
-                  <Delete fontSize="small" />
-                </IconButton>
+                <Button size="small" startIcon={<Add />} onClick={addConteudoBasico}>
+                  Adicionar Tópico
+                </Button>
+              </Box>
+            </Box>
+
+            {conteudosBasicos.map((item, index) => (
+              <Box key={item.id} sx={{ mb: 1.5 }}>
+                {/* Tópico principal */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip label={index + 1} size="small" sx={{ minWidth: 32 }} />
+                  <TextField
+                    value={item.titulo}
+                    onChange={(e) => updateConteudoBasico(item.id, e.target.value)}
+                    sx={{ flex: 1 }}
+                    size="small"
+                    placeholder="Tópico"
+                  />
+                  <Tooltip title="Adicionar Sub-tópico">
+                    <IconButton size="small" color="primary" onClick={() => addSubTopicoBasico(item.id)}>
+                      <Add fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Box>
+                {/* Sub-tópicos */}
+                {item.subtopicos?.map((sub, sIdx) => (
+                  <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5, mt: 0.5 }}>
+                    <Typography variant="body2" sx={{ minWidth: 36, fontWeight: 600, color: 'text.secondary' }}>
+                      {index + 1}.{sIdx + 1}
+                    </Typography>
+                    <TextField
+                      value={sub.titulo}
+                      onChange={(e) => updateSubTopicoBasico(item.id, sub.id, e.target.value)}
+                      sx={{ flex: 1 }}
+                      size="small"
+                      placeholder="Sub-tópico"
+                    />
+                    <IconButton size="small" color="error" onClick={() => removeSubTopicoBasico(item.id, sub.id)}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))}
               </Box>
             ))}
 
