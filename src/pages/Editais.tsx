@@ -135,7 +135,7 @@ interface Edital {
 }
 
 // Fields managed by react-hook-form (excludes arrays managed via useState)
-type EditalFormFields = Omit<Edital, 'id' | 'cotas' | 'cargos' | 'anexos' | 'conteudos_basicos' | 'conteudos_especificos'>;
+type EditalFormFields = Omit<Edital, 'id' | 'todos_cargos_basicos' | 'cotas' | 'cargos' | 'anexos' | 'conteudos_basicos' | 'conteudos_especificos'>;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -227,6 +227,7 @@ const EditaisPage: React.FC = () => {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id?: number }>({ open: false });
   const [deleteCargoDialog, setDeleteCargoDialog] = useState<{ open: boolean; cargoId?: string }>({ open: false });
   const [deleteAnexoDialog, setDeleteAnexoDialog] = useState<{ open: boolean; anexoId?: string }>({ open: false });
+  const [deleteDisciplinaDialog, setDeleteDisciplinaDialog] = useState<{ open: boolean; discId?: string }>({ open: false });
 
   const [saving, setSaving] = useState(false);
 
@@ -440,8 +441,12 @@ const EditaisPage: React.FC = () => {
   const updateDisciplina = (id: string, field: keyof Disciplina, value: unknown) =>
     setConteudosEspecificos(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
 
-  const removeDisciplina = (id: string) =>
-    setConteudosEspecificos(prev => prev.filter(d => d.id !== id));
+  const confirmRemoveDisciplina = () => {
+    if (deleteDisciplinaDialog.discId) {
+      setConteudosEspecificos(prev => prev.filter(d => d.id !== deleteDisciplinaDialog.discId));
+    }
+    setDeleteDisciplinaDialog({ open: false });
+  };
 
   const addTopico = (discId: string) =>
     setConteudosEspecificos(prev => prev.map(d =>
@@ -977,11 +982,23 @@ const EditaisPage: React.FC = () => {
             Adicionar Cargo
           </Button>
 
-          {cargos.map((cargo) => (
+          {cargos.map((cargo, cIdx) => (
             <Paper key={cargo.id} sx={{ p: 3, mb: 2 }}>
+              {/* Header */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Cargo {cIdx + 1}
+                </Typography>
+                <Tooltip title="Excluir Cargo">
+                  <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
               {/* Row 1: Nome do Cargo + Nível */}
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 9 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     label="Nome do Cargo"
                     value={cargo.nome}
@@ -989,7 +1006,7 @@ const EditaisPage: React.FC = () => {
                     fullWidth
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
+                <Grid size={{ xs: 6, md: 3 }}>
                   <FormControl fullWidth>
                     <InputLabel>Nível</InputLabel>
                     <Select
@@ -1004,6 +1021,16 @@ const EditaisPage: React.FC = () => {
                     </Select>
                   </FormControl>
                 </Grid>
+                <Grid size={{ xs: 6, md: 3 }}>
+                  <TextField
+                    label="Total de Vagas"
+                    type="number"
+                    value={cargo.vagas_total}
+                    onChange={(e) => updateCargo(cargo.id, 'vagas_total', Math.max(0, Number(e.target.value)))}
+                    fullWidth
+                    slotProps={{ htmlInput: { min: 0 } }}
+                  />
+                </Grid>
               </Grid>
 
               {/* Row 2: Remuneração, Carga Horária, Regime */}
@@ -1014,6 +1041,7 @@ const EditaisPage: React.FC = () => {
                     value={cargo.remuneracao}
                     onChange={(e) => updateCargo(cargo.id, 'remuneracao', e.target.value)}
                     fullWidth
+                    placeholder="R$ 5.420,00"
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -1022,6 +1050,7 @@ const EditaisPage: React.FC = () => {
                     value={cargo.carga_horaria}
                     onChange={(e) => updateCargo(cargo.id, 'carga_horaria', e.target.value)}
                     fullWidth
+                    placeholder="40h semanais"
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -1039,7 +1068,7 @@ const EditaisPage: React.FC = () => {
                 </Grid>
               </Grid>
 
-              {/* Row 3: Requisitos (full width, multiline) */}
+              {/* Row 3: Requisitos */}
               <Box sx={{ mt: 2 }}>
                 <TextField
                   label="Requisitos"
@@ -1048,15 +1077,15 @@ const EditaisPage: React.FC = () => {
                   fullWidth
                   multiline
                   rows={2}
+                  placeholder="Graduação em Enfermagem + COREN ativo"
                 />
               </Box>
 
-              {/* Distribuição de Vagas (calculada automaticamente pelas cotas do edital) */}
+              {/* Distribuição de Vagas (calculada automaticamente) */}
               {cargo.vagas_total > 0 && (
-                <>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Distribuição de Vagas (calculada pelas cotas do edital)
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                  <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Distribuição de Vagas ({cargo.vagas_total} total)
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {calcDistribuicao(cargo.vagas_total, cotas).map((d) => (
@@ -1069,19 +1098,8 @@ const EditaisPage: React.FC = () => {
                       />
                     ))}
                   </Box>
-                </>
+                </Box>
               )}
-
-              <Divider sx={{ my: 2 }} />
-              <Box sx={{ textAlign: 'right' }}>
-                <Button
-                  color="error"
-                  startIcon={<Delete />}
-                  onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}
-                >
-                  Excluir Cargo
-                </Button>
-              </Box>
             </Paper>
           ))}
 
@@ -1147,16 +1165,16 @@ const EditaisPage: React.FC = () => {
                       <Add fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}>
-                    <Delete fontSize="small" />
-                  </IconButton>
+                  <Tooltip title="Excluir Tópico">
+                    <IconButton size="small" color="error" onClick={() => removeConteudoBasico(item.id)}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
                 {/* Sub-tópicos */}
                 {(item.subtopicos || []).map((sub, sIdx) => (
                   <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 5, mt: 0.5 }}>
-                    <Typography variant="body2" sx={{ minWidth: 36, fontWeight: 600, color: 'text.secondary' }}>
-                      {index + 1}.{sIdx + 1}
-                    </Typography>
+                    <Chip label={`${index + 1}.${sIdx + 1}`} size="small" variant="outlined" sx={{ minWidth: 40 }} />
                     <TextField
                       value={sub.titulo}
                       onChange={(e) => updateSubTopicoBasico(item.id, sub.id, e.target.value)}
@@ -1164,9 +1182,11 @@ const EditaisPage: React.FC = () => {
                       size="small"
                       placeholder="Sub-tópico"
                     />
-                    <IconButton size="small" color="error" onClick={() => removeSubTopicoBasico(item.id, sub.id)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    <Tooltip title="Excluir Sub-tópico">
+                      <IconButton size="small" color="error" onClick={() => removeSubTopicoBasico(item.id, sub.id)}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
                 ))}
               </Box>
@@ -1278,7 +1298,7 @@ const EditaisPage: React.FC = () => {
                 <Button size="small" startIcon={<Add />} onClick={() => addTopico(disc.id)}>
                   Adicionar Tópico
                 </Button>
-                <Button size="small" color="error" startIcon={<Delete />} onClick={() => removeDisciplina(disc.id)}>
+                <Button size="small" color="error" startIcon={<Delete />} onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })}>
                   Excluir Disciplina
                 </Button>
               </Box>
@@ -1321,7 +1341,7 @@ const EditaisPage: React.FC = () => {
                 <TableRow>
                   <TableCell>Nome do Anexo</TableCell>
                   <TableCell>Arquivo</TableCell>
-                  <TableCell width={120}>Ações</TableCell>
+                  <TableCell width={150}>Ações</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1482,6 +1502,18 @@ const EditaisPage: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setDeleteCargoDialog({ open: false })}>Cancelar</Button>
           <Button color="error" onClick={removeCargo}>Excluir</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Disciplina Confirmation */}
+      <Dialog open={deleteDisciplinaDialog.open} onClose={() => setDeleteDisciplinaDialog({ open: false })}>
+        <DialogTitle>Confirmar Exclusão</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Tem certeza que deseja excluir esta disciplina e todos os seus tópicos?</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDisciplinaDialog({ open: false })}>Cancelar</Button>
+          <Button color="error" onClick={confirmRemoveDisciplina}>Excluir</Button>
         </DialogActions>
       </Dialog>
 
