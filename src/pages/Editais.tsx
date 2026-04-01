@@ -522,10 +522,22 @@ const EditaisPage: React.FC = () => {
       ),
     },
     {
-      field: 'data_prova',
-      headerName: 'Data da Prova',
+      field: 'data_publicacao',
+      headerName: 'Publicação',
       flex: 1,
       renderCell: (params) => formatDateBR(params.value),
+    },
+    {
+      field: 'inscricoes',
+      headerName: 'Inscrições',
+      flex: 1.2,
+      sortable: false,
+      renderCell: (params) => {
+        const r = params.row;
+        const ini = formatDateBR(r.data_inscricao_inicio);
+        const fim = formatDateBR(r.data_inscricao_fim);
+        return ini || fim ? `${ini || '–'} a ${fim || '–'}` : '';
+      },
     },
     {
       field: 'acoes',

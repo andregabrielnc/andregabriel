@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, numero, orgao, banca, status, data_publicacao,
-              data_inscricao_inicio, data_inscricao_fim, created_at
+              data_inscricao_inicio, data_inscricao_fim, data_prova, created_at
        FROM editais ORDER BY created_at DESC`
     );
     res.json(rows);
