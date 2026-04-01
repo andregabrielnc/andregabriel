@@ -328,10 +328,10 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
   };
 
   // ============================================================
-  // Conteudos Basicos helpers
+  // Conteúdos Básicos helpers
   // ============================================================
 
-  /** Add a new conteudo basico */
+  /** Add a new conteúdo básico */
   const addConteudoBasico = () => {
     setConteudosBasicos((prev) => [
       ...prev,
@@ -339,12 +339,12 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
     ]);
   };
 
-  /** Remove a conteudo basico */
+  /** Remove a conteúdo básico */
   const removeConteudoBasico = (id: string) => {
     setConteudosBasicos((prev) => prev.filter((c) => c.id !== id));
   };
 
-  /** Update a conteudo basico title */
+  /** Update a conteúdo básico title */
   const updateConteudoBasico = (id: string, titulo: string) => {
     setConteudosBasicos((prev) =>
       prev.map((c) => (c.id === id ? { ...c, titulo } : c))
@@ -497,12 +497,12 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
   };
 
   // ============================================================
-  // Render: Tab 1 - Cabecalho e Inscricoes
+  // Render: Tab 1 - Cabeçalho e Inscrições
   // ============================================================
   const renderTabCabecalho = () => (
     <Box sx={{ p: 2 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>
-        Cabecalho e Inscricoes
+        Cabeçalho e Inscrições
       </Typography>
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -510,7 +510,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             name="numero"
             control={control}
             render={({ field }) => (
-              <TextField {...field} label="Numero do Edital" fullWidth required />
+              <TextField {...field} label="Número do Edital" fullWidth required />
             )}
           />
         </Grid>
@@ -519,7 +519,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             name="orgao"
             control={control}
             render={({ field }) => (
-              <TextField {...field} label="Orgao" fullWidth required />
+              <TextField {...field} label="Órgão" fullWidth required />
             )}
           />
         </Grid>
@@ -530,7 +530,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Data de Publicacao"
+                label="Data de Publicação"
                 type="date"
                 fullWidth
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -554,7 +554,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Inicio Inscricoes"
+                label="Início Inscrições"
                 type="date"
                 fullWidth
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -569,7 +569,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Fim Inscricoes"
+                label="Fim Inscrições"
                 type="date"
                 fullWidth
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -593,7 +593,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Inicio Impugnacao"
+                label="Início Impugnação"
                 type="date"
                 fullWidth
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -608,7 +608,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Fim Impugnacao"
+                label="Fim Impugnação"
                 type="date"
                 fullWidth
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -700,7 +700,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
                   >
                     <MenuItem value="negro">Negro</MenuItem>
                     <MenuItem value="pcd">PCD</MenuItem>
-                    <MenuItem value="indigena">Indigena</MenuItem>
+                    <MenuItem value="indigena">Indígena</MenuItem>
                   </Select>
                 </FormControl>
                 <TextField
@@ -714,7 +714,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
                   sx={{ width: 90 }}
                 />
                 <TextField
-                  label="Observacoes"
+                  label="Observações"
                   size="small"
                   value={cota.observacoes}
                   onChange={(e) => updateCota(vaga.id, cota.id, 'observacoes', e.target.value)}
@@ -764,7 +764,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
           <TableRow>
             <TableCell><strong>Nome do Anexo</strong></TableCell>
             <TableCell><strong>Arquivo (.pdf)</strong></TableCell>
-            <TableCell align="right"><strong>Acoes</strong></TableCell>
+            <TableCell align="right"><strong>Ações</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -811,7 +811,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
             fullWidth
           />
           <TextField
-            label="Arquivo (nome do ficheiro .pdf)"
+            label="Arquivo (nome do arquivo .pdf)"
             value={anexoModalArquivo}
             onChange={(e) => setAnexoModalArquivo(e.target.value)}
             fullWidth
@@ -839,14 +839,14 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
   );
 
   // ============================================================
-  // Render: Tab 4 - Conteudos Programaticos
+  // Render: Tab 4 - Conteúdos Programáticos
   // ============================================================
   const renderTabConteudos = () => (
     <Box sx={{ p: 2 }}>
       {/* --- Basicos --- */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Conteudos Basicos</Typography>
+          <Typography variant="h6">Conteúdos Básicos</Typography>
           <Button size="small" startIcon={<Add />} onClick={addConteudoBasico}>
             Adicionar
           </Button>
@@ -860,7 +860,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
               onChange={(e) => updateConteudoBasico(cb.id, e.target.value)}
               size="small"
               fullWidth
-              placeholder="Titulo do conteudo"
+              placeholder="Título do conteúdo"
             />
             <Tooltip title="Remover">
               <IconButton size="small" color="error" onClick={() => removeConteudoBasico(cb.id)}>
@@ -871,7 +871,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
         ))}
 
         {conteudosBasicos.length === 0 && (
-          <Typography color="text.secondary">Nenhum conteudo basico.</Typography>
+          <Typography color="text.secondary">Nenhum conteúdo básico.</Typography>
         )}
       </Box>
 
@@ -880,7 +880,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
       {/* --- Especificos --- */}
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Conteudos Especificos</Typography>
+          <Typography variant="h6">Conteúdos Específicos</Typography>
           <Button size="small" startIcon={<Add />} onClick={addGrupo}>
             Adicionar Grupo
           </Button>
@@ -903,7 +903,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
                 sx={{ flex: 1 }}
               />
               <Button size="small" startIcon={<Add />} onClick={() => addSessao(grupo.id)}>
-                Sessao
+                Sessão
               </Button>
               <Tooltip title="Remover Grupo">
                 <IconButton size="small" color="error" onClick={() => removeGrupo(grupo.id)}>
@@ -926,7 +926,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
                     onChange={(e) => updateSessaoTitulo(grupo.id, sessao.id, e.target.value)}
                     size="small"
                     sx={{ flex: 1 }}
-                    placeholder="Titulo da Sessao"
+                    placeholder="Título da Sessão"
                   />
                   <Button
                     size="small"
@@ -935,7 +935,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
                   >
                     Sub
                   </Button>
-                  <Tooltip title="Remover Sessao">
+                  <Tooltip title="Remover Sessão">
                     <IconButton
                       size="small"
                       color="error"
@@ -962,9 +962,9 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
                       }
                       size="small"
                       sx={{ flex: 1 }}
-                      placeholder="Titulo da Sub-sessao"
+                      placeholder="Título da Sub-sessão"
                     />
-                    <Tooltip title="Remover Sub-sessao">
+                    <Tooltip title="Remover Sub-sessão">
                       <IconButton
                         size="small"
                         color="error"
@@ -980,7 +980,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
 
             {grupo.sessoes.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ ml: 3 }}>
-                Nenhuma sessao neste grupo.
+                Nenhuma sessão neste grupo.
               </Typography>
             )}
           </Paper>
@@ -1006,10 +1006,10 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
           scrollButtons="auto"
           sx={{ borderBottom: '1px solid #e0e0e0' }}
         >
-          <Tab label="Cabecalho e Inscricoes" />
+          <Tab label="Cabeçalho e Inscrições" />
           <Tab label="Vagas e Cotas" />
           <Tab label="Anexos" />
-          <Tab label="Conteudos Programaticos" />
+          <Tab label="Conteúdos Programáticos" />
         </Tabs>
 
         <Box>
@@ -1037,7 +1037,7 @@ function EditEditalForm({ edital, onSave, onCancel }: EditEditalFormProps) {
 
       {/* Generic delete confirmation dialog */}
       <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog((d) => ({ ...d, open: false }))}>
-        <DialogTitle>Confirmar Exclusao</DialogTitle>
+        <DialogTitle>Confirmar Exclusão</DialogTitle>
         <DialogContent>
           <Typography>Deseja realmente remover este item?</Typography>
         </DialogContent>
@@ -1075,7 +1075,7 @@ function EditaisPage() {
   const fetchEditais = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/editais');
+      const res = await fetch('/api/editais', { credentials: 'include' });
       if (!res.ok) throw new Error('Erro ao buscar editais');
       const data = await res.json();
       setEditais(data);
@@ -1093,12 +1093,24 @@ function EditaisPage() {
   // ============================================================
   // Load a single edital by ID for editing
   // ============================================================
+  /** Normaliza string de data do PostgreSQL para YYYY-MM-DD (input type=date) */
+  const normDate = (v: string | null | undefined): string => {
+    if (!v) return '';
+    return v.slice(0, 10); // "2025-03-15T00:00:00.000Z" → "2025-03-15"
+  };
+
   const loadEditalForEdit = async (id: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/editais/${id}`);
+      const res = await fetch(`/api/editais/${id}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Erro ao buscar edital');
       const data: Edital = await res.json();
+      // Normaliza datas para formato do input type=date
+      data.data_publicacao = normDate(data.data_publicacao);
+      data.data_inscricao_inicio = normDate(data.data_inscricao_inicio);
+      data.data_inscricao_fim = normDate(data.data_inscricao_fim);
+      data.data_impugnacao_inicio = normDate(data.data_impugnacao_inicio);
+      data.data_impugnacao_fim = normDate(data.data_impugnacao_fim);
       setEditingEdital(data);
       setMode('edit');
     } catch (err: any) {
@@ -1121,6 +1133,7 @@ function EditaisPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
 
@@ -1144,9 +1157,9 @@ function EditaisPage() {
     if (deletingId === null) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/editais/${deletingId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/editais/${deletingId}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Erro ao excluir edital');
-      showSnack('Edital excluido com sucesso!');
+      showSnack('Edital excluído com sucesso!');
       fetchEditais();
     } catch (err: any) {
       showSnack(err.message || 'Erro ao excluir', 'error');
@@ -1160,25 +1173,37 @@ function EditaisPage() {
   // ============================================================
   // DataGrid columns
   // ============================================================
+  /** Converte YYYY-MM-DD ou ISO string para DD/MM/YYYY */
+  const fmtDate = (v: string | null | undefined): string => {
+    if (!v) return '-';
+    const d = new Date(v + 'T00:00:00'); // force local timezone
+    if (isNaN(d.getTime())) return v;
+    return d.toLocaleDateString('pt-BR');
+  };
+
   const columns: GridColDef[] = [
-    { field: 'numero', headerName: 'Numero', flex: 1, minWidth: 120 },
-    { field: 'orgao', headerName: 'Orgao', flex: 1, minWidth: 150 },
-    { field: 'data_publicacao', headerName: 'Data Publicacao', flex: 1, minWidth: 130 },
+    { field: 'numero', headerName: 'Número', flex: 1, minWidth: 120 },
+    { field: 'orgao', headerName: 'Órgão', flex: 1, minWidth: 150 },
+    {
+      field: 'data_publicacao',
+      headerName: 'Data Publicação',
+      flex: 1,
+      minWidth: 130,
+      renderCell: (params: GridRenderCellParams) => fmtDate(params.value as string),
+    },
     {
       field: 'inscricoes',
-      headerName: 'Inscricoes',
+      headerName: 'Inscrições',
       flex: 1,
-      minWidth: 180,
+      minWidth: 200,
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as Edital;
-        const inicio = row.data_inscricao_inicio || '-';
-        const fim = row.data_inscricao_fim || '-';
-        return `${inicio} a ${fim}`;
+        return `${fmtDate(row.data_inscricao_inicio)} a ${fmtDate(row.data_inscricao_fim)}`;
       },
     },
     {
       field: 'acoes',
-      headerName: 'Acoes',
+      headerName: 'Ações',
       width: 120,
       sortable: false,
       filterable: false,
@@ -1289,9 +1314,9 @@ function EditaisPage() {
 
           {/* Delete confirmation */}
           <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-            <DialogTitle>Confirmar Exclusao</DialogTitle>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
             <DialogContent>
-              <Typography>Deseja realmente excluir este edital? Esta acao nao pode ser desfeita.</Typography>
+              <Typography>Deseja realmente excluir este edital? Esta ação não pode ser desfeita.</Typography>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
