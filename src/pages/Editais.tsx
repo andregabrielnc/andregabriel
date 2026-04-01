@@ -679,6 +679,14 @@ const EditaisPage: React.FC = () => {
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 0 && (
         <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" fontWeight="bold">Informações do Edital</Typography>
+            <Tooltip title="Salvar">
+              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 36, height: 36 }}>
+                {saving ? <CircularProgress size={18} color="inherit" /> : <Save fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
           <Grid container spacing={2}>
             {/* Número do Edital */}
             <Grid size={{ xs: 12, md: 6 }}>
@@ -958,13 +966,6 @@ const EditaisPage: React.FC = () => {
               </TableBody>
             </Table>
           )}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <Tooltip title="Salvar">
-              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
-                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Paper>
       )}
 
@@ -989,11 +990,18 @@ const EditaisPage: React.FC = () => {
                 <Typography variant="subtitle1" fontWeight="bold">
                   Cargo {cIdx + 1}
                 </Typography>
-                <Tooltip title="Excluir Cargo">
-                  <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}>
-                    <Delete fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <Tooltip title="Salvar">
+                    <IconButton size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 32, height: 32 }}>
+                      {saving ? <CircularProgress size={16} color="inherit" /> : <Save sx={{ fontSize: 16 }} />}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Excluir Cargo">
+                    <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
 
               {/* Row 1: Nome do Cargo + Nível */}
@@ -1110,13 +1118,6 @@ const EditaisPage: React.FC = () => {
               </Typography>
             </Paper>
           )}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <Tooltip title="Salvar">
-              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
-                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Box>
       )}
 
@@ -1129,7 +1130,7 @@ const EditaisPage: React.FC = () => {
           <Paper sx={{ p: 3, mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">Conhecimentos Básicos</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -1145,6 +1146,11 @@ const EditaisPage: React.FC = () => {
                 <Button size="small" startIcon={<Add />} onClick={addConteudoBasico}>
                   Adicionar Tópico
                 </Button>
+                <Tooltip title="Salvar">
+                  <IconButton size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 32, height: 32 }}>
+                    {saving ? <CircularProgress size={16} color="inherit" /> : <Save sx={{ fontSize: 16 }} />}
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
 
@@ -1209,6 +1215,21 @@ const EditaisPage: React.FC = () => {
 
           {conteudosEspecificos.map((disc) => (
             <Paper key={disc.id} sx={{ p: 3, mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold">Disciplina</Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <Tooltip title="Salvar">
+                    <IconButton size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 32, height: 32 }}>
+                      {saving ? <CircularProgress size={16} color="inherit" /> : <Save sx={{ fontSize: 16 }} />}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Excluir Disciplina">
+                    <IconButton size="small" color="error" onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
               <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
@@ -1294,12 +1315,9 @@ const EditaisPage: React.FC = () => {
                 </Box>
               ))}
 
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+              <Box sx={{ mt: 1 }}>
                 <Button size="small" startIcon={<Add />} onClick={() => addTopico(disc.id)}>
                   Adicionar Tópico
-                </Button>
-                <Button size="small" color="error" startIcon={<Delete />} onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })}>
-                  Excluir Disciplina
                 </Button>
               </Box>
             </Paper>
@@ -1311,13 +1329,6 @@ const EditaisPage: React.FC = () => {
             </Paper>
           )}
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <Tooltip title="Salvar">
-              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
-                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Box>
       )}
 
@@ -1326,14 +1337,21 @@ const EditaisPage: React.FC = () => {
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 3 && (
         <Box>
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={() => openAnexoModal()}
-            sx={{ mb: 2, color: PRIMARY, borderColor: PRIMARY }}
-          >
-            Adicionar Anexo
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => openAnexoModal()}
+              sx={{ color: PRIMARY, borderColor: PRIMARY }}
+            >
+              Adicionar Anexo
+            </Button>
+            <Tooltip title="Salvar">
+              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 36, height: 36 }}>
+                {saving ? <CircularProgress size={18} color="inherit" /> : <Save fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
 
           <TableContainer component={Paper}>
             <Table>
@@ -1392,13 +1410,6 @@ const EditaisPage: React.FC = () => {
             </Table>
           </TableContainer>
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <Tooltip title="Salvar">
-              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
-                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Box>
       )}
 

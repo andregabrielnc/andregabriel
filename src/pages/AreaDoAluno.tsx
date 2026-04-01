@@ -516,7 +516,7 @@ export default function AreaDoAluno({ user, onExit }: AreaDoAlunoProps) {
           </Box>
         </Main>
 
-        <Toaster position="bottom-right" richColors closeButton />
+        <Toaster position="top-right" richColors closeButton />
       </Box>
     </ThemeProvider>
   );
