@@ -648,24 +648,13 @@ const EditaisPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={() => setEditing(null)}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h5" fontWeight="bold">
-            {isNew ? 'Novo Edital' : 'Editar Edital'}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
-          sx={{ bgcolor: PRIMARY }}
-          onClick={handleSubmit(onSubmit)}
-          disabled={saving}
-        >
-          Salvar
-        </Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <IconButton onClick={() => setEditing(null)}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h5" fontWeight="bold">
+          {isNew ? 'Novo Edital' : 'Editar Edital'}
+        </Typography>
       </Box>
 
       {/* ── Tabs ──────────────────────────────────────────────────────────── */}
@@ -964,6 +953,13 @@ const EditaisPage: React.FC = () => {
               </TableBody>
             </Table>
           )}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+            <Tooltip title="Salvar">
+              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
+                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Paper>
       )}
 
@@ -1096,6 +1092,13 @@ const EditaisPage: React.FC = () => {
               </Typography>
             </Paper>
           )}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+            <Tooltip title="Salvar">
+              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
+                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       )}
 
@@ -1287,6 +1290,14 @@ const EditaisPage: React.FC = () => {
               <Typography color="text.secondary">Nenhuma disciplina adicionada.</Typography>
             </Paper>
           )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+            <Tooltip title="Salvar">
+              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
+                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       )}
 
@@ -1360,6 +1371,14 @@ const EditaisPage: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+            <Tooltip title="Salvar">
+              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 44, height: 44, boxShadow: 2 }}>
+                {saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       )}
 
