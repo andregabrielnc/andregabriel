@@ -130,6 +130,7 @@ export async function initDb() {
       data_impugnacao_fim    DATE,
       taxa_inscricao         TEXT NOT NULL DEFAULT '',
       observacoes            TEXT NOT NULL DEFAULT '',
+      cotas                  JSONB NOT NULL DEFAULT '[]',
       cargos                 JSONB NOT NULL DEFAULT '[]',
       anexos                 JSONB NOT NULL DEFAULT '[]',
       conteudos_basicos      JSONB NOT NULL DEFAULT '[]',
@@ -143,6 +144,7 @@ export async function initDb() {
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS data_prova DATE;
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS taxa_inscricao TEXT NOT NULL DEFAULT '';
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS observacoes TEXT NOT NULL DEFAULT '';
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS cotas JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS cargos JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS conteudos_especificos JSONB NOT NULL DEFAULT '[]';
 

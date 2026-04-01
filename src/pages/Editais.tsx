@@ -41,11 +41,10 @@ const STATUS_COLORS: Record<string, 'success' | 'info' | 'default' | 'secondary'
 // TypeScript Interfaces
 // ═════════════════════════════════════════════════════════════════════════════
 
-interface Cota {
+interface CotaEdital {
   id: string;
-  tipo: 'ampla' | 'negro' | 'pcd' | 'indigena';
-  vagas: number;
-  observacoes: string;
+  tipo: 'negro' | 'pcd' | 'indigena';
+  porcentagem: number;  // ex: 20 = 20%
 }
 
 interface Cargo {
@@ -57,7 +56,20 @@ interface Cargo {
   carga_horaria: string;
   requisitos: string;
   regime: 'CLT' | 'Estatutário';
-  cotas: Cota[];
+}
+
+/** Calcula distribuição de vagas de um cargo a partir das cotas do edital */
+function calcDistribuicao(vagas_total: number, cotas: CotaEdital[]) {
+  const dist: { tipo: string; label: string; vagas: number }[] = [];
+  let reservadas = 0;
+  for (const c of cotas) {
+    const v = Math.max(0, Math.round(vagas_total * c.porcentagem / 100));
+    const label = c.tipo === 'negro' ? 'Negro' : c.tipo === 'pcd' ? 'PCD' : 'Indígena';
+    dist.push({ tipo: c.tipo, label, vagas: v });
+    reservadas += v;
+  }
+  dist.unshift({ tipo: 'ampla', label: 'Ampla Concorrência', vagas: Math.max(0, vagas_total - reservadas) });
+  return dist;
 }
 
 interface Anexo {
@@ -105,6 +117,7 @@ interface Edital {
   data_impugnacao_fim: string;
   taxa_inscricao: string;
   observacoes: string;
+  cotas: CotaEdital[];
   cargos: Cargo[];
   anexos: Anexo[];
   conteudos_basicos: TopicoBasico[];
@@ -112,7 +125,7 @@ interface Edital {
 }
 
 // Fields managed by react-hook-form (excludes arrays managed via useState)
-type EditalFormFields = Omit<Edital, 'id' | 'cargos' | 'anexos' | 'conteudos_basicos' | 'conteudos_especificos'>;
+type EditalFormFields = Omit<Edital, 'id' | 'cotas' | 'cargos' | 'anexos' | 'conteudos_basicos' | 'conteudos_especificos'>;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -155,14 +168,6 @@ const emptyCargo = (): Cargo => ({
   carga_horaria: '',
   requisitos: '',
   regime: 'CLT',
-  cotas: [],
-});
-
-const emptyCota = (): Cota => ({
-  id: uid(),
-  tipo: 'ampla',
-  vagas: 0,
-  observacoes: '',
 });
 
 const emptyAnexo = (): Anexo => ({
@@ -191,6 +196,7 @@ const EditaisPage: React.FC = () => {
 
   // ── Form tab & dynamic arrays ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState(0);
+  const [cotas, setCotas] = useState<CotaEdital[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [anexos, setAnexos] = useState<Anexo[]>([]);
   const [conteudosBasicos, setConteudosBasicos] = useState<TopicoBasico[]>([]);
@@ -244,6 +250,7 @@ const EditaisPage: React.FC = () => {
     setIsNew(true);
     setEditing({} as Edital);
     reset(emptyEdital());
+    setCotas([]);
     setCargos([]);
     setAnexos([]);
     setConteudosBasicos([]);
@@ -275,6 +282,7 @@ const EditaisPage: React.FC = () => {
         taxa_inscricao: data.taxa_inscricao || '',
         observacoes: data.observacoes || '',
       });
+      setCotas(data.cotas || []);
       setCargos(data.cargos || []);
       setAnexos(data.anexos || []);
       setConteudosBasicos(data.conteudos_basicos || []);
@@ -295,6 +303,7 @@ const EditaisPage: React.FC = () => {
     setSaving(true);
     const payload: Edital = {
       ...formData,
+      cotas,
       cargos,
       anexos,
       conteudos_basicos: conteudosBasicos,
@@ -362,25 +371,15 @@ const EditaisPage: React.FC = () => {
     setDeleteCargoDialog({ open: false });
   };
 
-  const addCota = (cargoId: string) => {
-    setCargos(prev => prev.map(c =>
-      c.id === cargoId ? { ...c, cotas: [...c.cotas, emptyCota()] } : c
-    ));
-  };
+  // ── Cotas do Edital (nível do edital, aplicadas a todos os cargos) ────────
+  const addCotaEdital = () =>
+    setCotas(prev => [...prev, { id: uid(), tipo: 'negro', porcentagem: 20 }]);
 
-  const updateCota = (cargoId: string, cotaId: string, field: keyof Cota, value: unknown) => {
-    setCargos(prev => prev.map(c =>
-      c.id === cargoId
-        ? { ...c, cotas: c.cotas.map(q => q.id === cotaId ? { ...q, [field]: value } : q) }
-        : c
-    ));
-  };
+  const updateCotaEdital = (id: string, field: keyof CotaEdital, value: unknown) =>
+    setCotas(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
 
-  const removeCota = (cargoId: string, cotaId: string) => {
-    setCargos(prev => prev.map(c =>
-      c.id === cargoId ? { ...c, cotas: c.cotas.filter(q => q.id !== cotaId) } : c
-    ));
-  };
+  const removeCotaEdital = (id: string) =>
+    setCotas(prev => prev.filter(c => c.id !== id));
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Conteúdos Básicos Helpers
@@ -857,6 +856,69 @@ const EditaisPage: React.FC = () => {
               />
             </Grid>
           </Grid>
+
+          {/* ── Cotas do Edital ── */}
+          <Divider sx={{ my: 3 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box>
+              <Typography variant="h6">Cotas de Vagas</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Defina os percentuais de reserva. Serão aplicados automaticamente a todos os cargos.
+              </Typography>
+            </Box>
+            <Button size="small" startIcon={<Add />} onClick={addCotaEdital}>
+              Adicionar Cota
+            </Button>
+          </Box>
+
+          {cotas.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Nenhuma cota definida. Todas as vagas serão de ampla concorrência.
+            </Typography>
+          ) : (
+            <Table size="small" sx={{ mb: 2 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Tipo</strong></TableCell>
+                  <TableCell><strong>Percentual (%)</strong></TableCell>
+                  <TableCell width={60}></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {cotas.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>
+                      <FormControl size="small" sx={{ minWidth: 180 }}>
+                        <Select
+                          value={c.tipo}
+                          onChange={(e) => updateCotaEdital(c.id, 'tipo', e.target.value)}
+                        >
+                          <MenuItem value="negro">Negro</MenuItem>
+                          <MenuItem value="pcd">PCD (Pessoa com Deficiência)</MenuItem>
+                          <MenuItem value="indigena">Indígena</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={c.porcentagem}
+                        onChange={(e) => updateCotaEdital(c.id, 'porcentagem', Number(e.target.value))}
+                        sx={{ width: 100 }}
+                        slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton size="small" color="error" onClick={() => removeCotaEdital(c.id)}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Paper>
       )}
 
@@ -948,74 +1010,26 @@ const EditaisPage: React.FC = () => {
                 />
               </Box>
 
-              {/* Distribuição de Vagas */}
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                Distribuição de Vagas
-              </Typography>
-
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Tipo</TableCell>
-                      <TableCell>Vagas</TableCell>
-                      <TableCell>Observações</TableCell>
-                      <TableCell width={60}>Ações</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {cargo.cotas.map((cota) => (
-                      <TableRow key={cota.id}>
-                        <TableCell>
-                          <FormControl size="small" sx={{ minWidth: 180 }}>
-                            <Select
-                              value={cota.tipo}
-                              onChange={(e) => updateCota(cargo.id, cota.id, 'tipo', e.target.value)}
-                            >
-                              <MenuItem value="ampla">Ampla Concorrência</MenuItem>
-                              <MenuItem value="negro">Negro</MenuItem>
-                              <MenuItem value="pcd">PCD</MenuItem>
-                              <MenuItem value="indigena">Indígena</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            type="number"
-                            size="small"
-                            value={cota.vagas}
-                            onChange={(e) => updateCota(cargo.id, cota.id, 'vagas', Number(e.target.value))}
-                            sx={{ width: 80 }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            value={cota.observacoes}
-                            onChange={(e) => updateCota(cargo.id, cota.id, 'observacoes', e.target.value)}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <IconButton size="small" color="error" onClick={() => removeCota(cargo.id, cota.id)}>
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
+              {/* Distribuição de Vagas (calculada automaticamente pelas cotas do edital) */}
+              {cargo.vagas_total > 0 && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                    Distribuição de Vagas (calculada pelas cotas do edital)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {calcDistribuicao(cargo.vagas_total, cotas).map((d) => (
+                      <Chip
+                        key={d.tipo}
+                        label={`${d.label}: ${d.vagas}`}
+                        size="small"
+                        color={d.tipo === 'ampla' ? 'primary' : d.tipo === 'negro' ? 'warning' : d.tipo === 'pcd' ? 'info' : 'success'}
+                        variant={d.tipo === 'ampla' ? 'filled' : 'outlined'}
+                      />
                     ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                <Button size="small" startIcon={<Add />} onClick={() => addCota(cargo.id)}>
-                  Adicionar Cota
-                </Button>
-                <Typography variant="body2" fontWeight="bold">
-                  Total de Vagas: {cargo.cotas.reduce((sum, c) => sum + Number(c.vagas || 0), 0)}
-                </Typography>
-              </Box>
+                  </Box>
+                </>
+              )}
 
               <Divider sx={{ my: 2 }} />
               <Box sx={{ textAlign: 'right' }}>

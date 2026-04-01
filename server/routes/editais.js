@@ -13,19 +13,19 @@ router.use(requireAuth);
 const FIELDS = `numero, orgao, banca, link_banca, status, data_publicacao,
   data_inscricao_inicio, data_inscricao_fim, data_prova, validade,
   data_impugnacao_inicio, data_impugnacao_fim, taxa_inscricao, observacoes,
-  cargos, anexos, conteudos_basicos, conteudos_especificos`;
+  cotas, cargos, anexos, conteudos_basicos, conteudos_especificos`;
 
 function extract(body) {
   const { numero, orgao, banca, link_banca, status, data_publicacao,
           data_inscricao_inicio, data_inscricao_fim, data_prova, validade,
           data_impugnacao_inicio, data_impugnacao_fim, taxa_inscricao, observacoes,
-          cargos, anexos, conteudos_basicos, conteudos_especificos } = body;
+          cotas, cargos, anexos, conteudos_basicos, conteudos_especificos } = body;
   return [
     numero, orgao, banca || '', link_banca || '', status || 'publicado',
     data_publicacao || null, data_inscricao_inicio || null, data_inscricao_fim || null,
     data_prova || null, validade || '', data_impugnacao_inicio || null, data_impugnacao_fim || null,
     taxa_inscricao || '', observacoes || '',
-    JSON.stringify(cargos || []), JSON.stringify(anexos || []),
+    JSON.stringify(cotas || []), JSON.stringify(cargos || []), JSON.stringify(anexos || []),
     JSON.stringify(conteudos_basicos || []), JSON.stringify(conteudos_especificos || []),
   ];
 }
