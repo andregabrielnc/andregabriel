@@ -118,20 +118,33 @@ export async function initDb() {
       id                     SERIAL PRIMARY KEY,
       numero                 TEXT NOT NULL,
       orgao                  TEXT NOT NULL,
+      banca                  TEXT NOT NULL DEFAULT '',
+      link_banca             TEXT NOT NULL DEFAULT '',
+      status                 TEXT NOT NULL DEFAULT 'publicado',
       data_publicacao        DATE,
       data_inscricao_inicio  DATE,
       data_inscricao_fim     DATE,
-      link_banca             TEXT NOT NULL DEFAULT '',
+      data_prova             DATE,
       validade               TEXT NOT NULL DEFAULT '',
       data_impugnacao_inicio DATE,
       data_impugnacao_fim    DATE,
-      vagas                  JSONB NOT NULL DEFAULT '[]',
+      taxa_inscricao         TEXT NOT NULL DEFAULT '',
+      observacoes            TEXT NOT NULL DEFAULT '',
+      cargos                 JSONB NOT NULL DEFAULT '[]',
       anexos                 JSONB NOT NULL DEFAULT '[]',
       conteudos_basicos      JSONB NOT NULL DEFAULT '[]',
-      grupos_especificos     JSONB NOT NULL DEFAULT '[]',
+      conteudos_especificos  JSONB NOT NULL DEFAULT '[]',
       created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    -- Migração: adiciona colunas novas se tabela já existir
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS banca TEXT NOT NULL DEFAULT '';
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'publicado';
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS data_prova DATE;
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS taxa_inscricao TEXT NOT NULL DEFAULT '';
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS observacoes TEXT NOT NULL DEFAULT '';
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS cargos JSONB NOT NULL DEFAULT '[]';
+    ALTER TABLE editais ADD COLUMN IF NOT EXISTS conteudos_especificos JSONB NOT NULL DEFAULT '[]';
 
     -- Performance indexes
     CREATE INDEX IF NOT EXISTS idx_cards_deck_active       ON cards (deck_id, active);
