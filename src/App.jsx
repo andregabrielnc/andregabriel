@@ -118,7 +118,6 @@ function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <AreaDoAluno user={user} onExit={exitAluno} />
-        <Toaster position="bottom-right" richColors closeButton />
       </Suspense>
     );
   }
@@ -128,7 +127,7 @@ function App() {
       <>
         <div className="min-h-screen bg-bg" />
         <WelcomeModal user={welcomeUser} onClose={() => { setWelcomeUser(null); goAluno(); }} />
-        <Toaster position="bottom-right" richColors closeButton />
+        <Toaster position="top-right" richColors closeButton />
       </>
     );
   }
@@ -140,7 +139,7 @@ function App() {
           onBack={() => setPage('home')}
           onSuccess={(u) => { setUser(u); setWelcomeUser(u); setPage('welcome'); }}
         />
-        <Toaster position="bottom-right" richColors closeButton />
+        <Toaster position="top-right" richColors closeButton />
       </Suspense>
     );
   }
@@ -162,7 +161,7 @@ function App() {
       <Footer />
       <WhatsAppButton />
       <CookieBanner />
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster position="top-right" richColors closeButton />
     </>
   );
 }

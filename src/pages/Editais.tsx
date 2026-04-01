@@ -992,37 +992,14 @@ const EditaisPage: React.FC = () => {
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 1 && (
         <Box>
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={addCargo}
-            sx={{ mb: 2, color: PRIMARY, borderColor: PRIMARY }}
-          >
-            Adicionar Cargo
-          </Button>
-
           {cargos.map((cargo, cIdx) => (
             <Paper key={cargo.id} sx={{ p: 3, mb: 2 }}>
               {/* Header */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  Cargo {cIdx + 1}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <Tooltip title="Salvar">
-                    <IconButton size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 32, height: 32 }}>
-                      {saving ? <CircularProgress size={16} color="inherit" /> : <Save sx={{ fontSize: 16 }} />}
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Excluir Cargo">
-                    <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
+              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
+                Cargo {cIdx + 1}{cargo.nome ? ` — ${cargo.nome}` : ''}
+              </Typography>
 
-              {/* Row 1: Nome do Cargo + Nível */}
+              {/* Row 1: Nome do Cargo + Nível + Vagas */}
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
@@ -1094,7 +1071,7 @@ const EditaisPage: React.FC = () => {
                 />
               </Box>
 
-              {/* Distribuição de Vagas (calculada automaticamente) */}
+              {/* Distribuição de Vagas */}
               {cargo.vagas_total > 0 && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                   <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
@@ -1113,16 +1090,44 @@ const EditaisPage: React.FC = () => {
                   </Box>
                 </Box>
               )}
+
+              {/* ── Footer: Salvar + Excluir ── */}
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />}
+                  onClick={handleSubmit(onSubmit)}
+                  disabled={saving}
+                  sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}
+                >
+                  Salvar
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Delete />}
+                  onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Excluir
+                </Button>
+              </Box>
             </Paper>
           ))}
 
-          {cargos.length === 0 && (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">
-                Nenhum cargo adicionado. Clique em "Adicionar Cargo" para começar.
-              </Typography>
-            </Paper>
-          )}
+          {/* Adicionar Cargo (always at the bottom) */}
+          <Button
+            variant="outlined"
+            startIcon={<Add />}
+            onClick={addCargo}
+            fullWidth
+            sx={{ color: PRIMARY, borderColor: PRIMARY, borderStyle: 'dashed', py: 1.5, textTransform: 'none', fontSize: '0.9rem' }}
+          >
+            Adicionar Cargo
+          </Button>
         </Box>
       )}
 
