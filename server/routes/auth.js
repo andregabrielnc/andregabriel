@@ -163,7 +163,7 @@ router.post('/login', async (req, res) => {
 router.get('/google', async (req, res, next) => {
   const token = req.query.recaptcha;
   const ok = await verifyRecaptcha(token, 'login').catch(() => false);
-  if (!ok) return res.redirect(`${process.env.FRONTEND_URL}/?login_error=recaptcha`);
+  if (!ok) return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?login_error=recaptcha`);
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
