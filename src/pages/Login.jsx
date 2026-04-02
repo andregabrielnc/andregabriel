@@ -192,7 +192,7 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
           clearInterval(interval);
         }
       } catch {}
-    }, 3000); // verifica a cada 3 segundos
+    }, 5000); // verifica a cada 5 segundos
     return () => clearInterval(interval);
   }, [pendingEmail, emailVerified]);
 

@@ -239,24 +239,6 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-// ── CHECAR STATUS DA VERIFICAÇÃO (polling) ───────────────────────────────
-
-router.post('/check-verification', async (req, res) => {
-  const { email } = req.body;
-  if (!email?.trim()) return res.status(400).json({ verified: false });
-
-  try {
-    const { rows } = await pool.query(
-      'SELECT email_verified FROM users WHERE email = $1',
-      [email.trim().toLowerCase()]
-    );
-    // Não revelar se o email existe — retorna false para inexistentes
-    res.json({ verified: rows[0]?.email_verified === true });
-  } catch {
-    res.json({ verified: false });
-  }
-});
-
 // ── ESQUECEU A SENHA ──────────────────────────────────────────────────────
 
 router.post('/forgot-password', async (req, res) => {

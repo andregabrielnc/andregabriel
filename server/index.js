@@ -87,6 +87,20 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ── Routes ───────────────────────────────────────────────────────────────────
+// Polling de verificação usa apiLimiter (120/min) para não bloquear o check a cada 3s
+app.post('/auth/check-verification', apiLimiter, async (req, res) => {
+  const { email } = req.body;
+  if (!email?.trim()) return res.json({ verified: false });
+  try {
+    const { rows } = await pool.query(
+      'SELECT email_verified FROM users WHERE email = $1',
+      [email.trim().toLowerCase()]
+    );
+    res.json({ verified: rows[0]?.email_verified === true });
+  } catch {
+    res.json({ verified: false });
+  }
+});
 app.use('/auth', authLimiter, authRouter);
 app.use('/api/users', apiLimiter, usersRouter);
 app.use('/api/editais', apiLimiter, editaisRouter);
