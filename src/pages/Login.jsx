@@ -136,6 +136,7 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
   const [regLoading,  setRegLoading]  = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const [resendMsg,   setResendMsg]   = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
 
   // Login
   const [loginEmail,    setLoginEmail]    = useState('');
@@ -173,6 +174,26 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
     else if (err)            setLoginError('Ocorreu um erro. Tente novamente.');
     if (err) window.history.replaceState({}, '', '/');
   }, []);
+
+  // Polling: verifica se o email foi confirmado em tempo real
+  useEffect(() => {
+    if (!pendingEmail || emailVerified) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/auth/check-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: pendingEmail }),
+        });
+        const data = await res.json();
+        if (data.verified) {
+          setEmailVerified(true);
+          clearInterval(interval);
+        }
+      } catch {}
+    }, 3000); // verifica a cada 3 segundos
+    return () => clearInterval(interval);
+  }, [pendingEmail, emailVerified]);
 
   // ── Register via form ──────────────────────────────────────────────────────
   const handleRegister = async (e) => {
@@ -492,45 +513,75 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
     </div>
   ) : null;
 
-  // ── Modal de verificação pendente ───────────────────────────────────────
+  // ── Modal de verificação pendente / confirmada ──────────────────────────
   const verifyModal = pendingEmail ? (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={() => setPendingEmail('')} />
+      <div className="absolute inset-0 bg-black/50" onClick={() => { if (emailVerified) { setPendingEmail(''); setEmailVerified(false); } }} />
       <div className="relative bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center flex flex-col items-center gap-5 animate-[fadeIn_0.2s_ease-out]">
-        <button
-          onClick={() => setPendingEmail('')}
-          className="absolute top-4 right-4 text-text-muted hover:text-text transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-        <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-          </svg>
-        </div>
-        <h2 className="text-xl font-bold text-text font-heading">Verifique seu e-mail</h2>
-        <p className="text-sm text-text-muted leading-relaxed">
-          Enviamos um link de confirmação para<br />
-          <strong className="text-text">{pendingEmail}</strong><br />
-          O link expira em <strong>24 horas</strong>.
-        </p>
-        <div className="flex flex-col gap-2 w-full">
+        {!emailVerified && (
           <button
-            onClick={handleResend}
-            className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+            onClick={() => setPendingEmail('')}
+            className="absolute top-4 right-4 text-text-muted hover:text-text transition-colors"
           >
-            Reenviar e-mail
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
           </button>
-          {resendMsg && (
-            <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
-              {resendMsg}
+        )}
+
+        {emailVerified ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-green-50 border border-green-200 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-text font-heading">E-mail confirmado!</h2>
+            <p className="text-sm text-text-muted leading-relaxed">
+              Sua conta foi ativada com sucesso.<br />Agora você pode fazer login.
             </p>
-          )}
-        </div>
-        <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
+            <button
+              onClick={() => { setPendingEmail(''); setEmailVerified(false); }}
+              className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Ir para o Login
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-text font-heading">Verifique seu e-mail</h2>
+            <p className="text-sm text-text-muted leading-relaxed">
+              Enviamos um link de confirmação para<br />
+              <strong className="text-text">{pendingEmail}</strong><br />
+              O link expira em <strong>24 horas</strong>.
+            </p>
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              Aguardando confirmação...
+            </div>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={handleResend}
+                className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Reenviar e-mail
+              </button>
+              {resendMsg && (
+                <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
+                  {resendMsg}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
+          </>
+        )}
       </div>
     </div>
   ) : null;
