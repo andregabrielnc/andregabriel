@@ -4,7 +4,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import pool from '../db.js';
-import { sendVerificationEmail, sendResetEmail } from '../mail.js';
+import { sendVerificationEmail, sendResetEmail, sendWelcomeEmail } from '../mail.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -20,11 +20,16 @@ async function verifyRecaptcha(token, action) {
 }
 
 function userPayload(u) {
-  return { id: u.id, name: u.name, email: u.email, phone: u.phone, picture: u.picture, role: u.role };
+  return {
+    id: u.id, name: u.name, email: u.email, phone: u.phone,
+    picture: u.picture, role: u.role, needsPhone: !u.phone || u.phone === '',
+  };
 }
 
 // ── Google Strategy ───────────────────────────────────────────────────────────
-// Auto-upsert: cria conta se e-mail não existir, atualiza google_id/picture se existir.
+// Upsert: cria conta se e-mail não existir, vincula google_id se existir.
+// Sempre marca email_verified=TRUE (Google já verificou o email).
+// Contas novas ficam com role='temporario' até completar o perfil (telefone).
 passport.use(new GoogleStrategy(
   {
     clientID:     process.env.GOOGLE_CLIENT_ID,
@@ -39,11 +44,12 @@ passport.use(new GoogleStrategy(
 
     try {
       const { rows } = await pool.query(`
-        INSERT INTO users (name, email, google_id, picture)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO users (name, email, google_id, picture, email_verified)
+        VALUES ($1, $2, $3, $4, TRUE)
         ON CONFLICT (email) DO UPDATE
-          SET google_id = EXCLUDED.google_id,
-              picture   = EXCLUDED.picture
+          SET google_id       = COALESCE(users.google_id, EXCLUDED.google_id),
+              picture         = EXCLUDED.picture,
+              email_verified  = TRUE
         RETURNING *
       `, [name, email, googleId, picture]);
 
@@ -84,7 +90,7 @@ router.post('/register', async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, 12);
     const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
     await pool.query(`
       INSERT INTO users (name, email, phone, password_hash, verification_token, verification_expires)
@@ -147,15 +153,22 @@ router.get('/google', async (req, res, next) => {
 });
 
 router.get('/google/callback', (req, res, next) => {
+  const base = process.env.FRONTEND_URL || 'http://localhost:5173';
   passport.authenticate('google', (err, user, info) => {
     if (err) return next(err);
     if (!user) {
       const msg = info?.message || 'error';
-      return res.redirect(`${process.env.FRONTEND_URL}/?login_error=${msg}`);
+      return res.redirect(`${base}/?login_error=${msg}`);
     }
     req.logIn(user, (loginErr) => {
       if (loginErr) return next(loginErr);
-      req.session.save(() => res.redirect(`${process.env.FRONTEND_URL}/?aluno=1`));
+      req.session.save(() => {
+        // Se o telefone está vazio, redireciona para completar perfil
+        if (user.needsPhone) {
+          return res.redirect(`${base}/?complete_profile=1`);
+        }
+        res.redirect(`${base}/?aluno=1`);
+      });
     });
   })(req, res, next);
 });
@@ -163,28 +176,30 @@ router.get('/google/callback', (req, res, next) => {
 // ── VERIFICAÇÃO DE E-MAIL ─────────────────────────────────────────────────
 
 router.get('/verify/:token', async (req, res) => {
+  const base = process.env.FRONTEND_URL || 'http://localhost:5173';
   try {
     const { rows } = await pool.query(
       `UPDATE users
-         SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL
+         SET email_verified = TRUE,
+             verification_token = NULL,
+             verification_expires = NULL,
+             role = 'aluno'
        WHERE verification_token = $1 AND verification_expires > NOW() AND email_verified = FALSE
        RETURNING *`,
       [req.params.token]
     );
 
     if (!rows[0]) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verify_error=expired`);
+      return res.redirect(`${base}/?verify_error=expired`);
     }
 
-    const user = userPayload(rows[0]);
-    req.logIn(user, (err) => {
-      if (err) return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verify_error=auth`);
-      req.session.save(() =>
-        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verified=1`)
-      );
-    });
+    // Envia email de boas-vindas (não bloqueia o redirect)
+    sendWelcomeEmail(rows[0].email, rows[0].name).catch(() => {});
+
+    // NÃO faz auto-login — redireciona para página de confirmação
+    res.redirect(`${base}/?verified=1`);
   } catch {
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/?verify_error=server`);
+    res.redirect(`${base}/?verify_error=server`);
   }
 });
 
@@ -200,7 +215,7 @@ router.post('/resend-verification', async (req, res) => {
       return res.json({ ok: true }); // não revelar se existe
 
     const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 30 * 60 * 1000);
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
     await pool.query(
       'UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3',
@@ -270,11 +285,44 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// ── COMPLETAR PERFIL (telefone obrigatório após Google signup) ────────────────
+
+router.post('/complete-profile', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Não autenticado.' });
+
+  const { phone } = req.body;
+  const phoneClean = String(phone || '').replace(/\D/g, '');
+  if (phoneClean.length < 10)
+    return res.status(400).json({ error: 'Celular inválido (inclua o DDD).' });
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE users SET phone = $1, role = 'aluno' WHERE id = $2 RETURNING *`,
+      [phoneClean, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    const user = userPayload(rows[0]);
+    req.logIn(user, (err) => {
+      if (err) return res.status(500).json({ error: 'Erro ao atualizar sessão.' });
+      req.session.save(() => {
+        // Envia email de boas-vindas (não bloqueia)
+        sendWelcomeEmail(rows[0].email, rows[0].name).catch(() => {});
+        res.json({ ok: true, user });
+      });
+    });
+  } catch {
+    res.status(500).json({ error: 'Erro interno. Tente novamente.' });
+  }
+});
+
 // ── ME / LOGOUT ───────────────────────────────────────────────────────────────
 
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    res.json({ user: req.user });
+    // Recalcula needsPhone a partir da sessão
+    const user = { ...req.user, needsPhone: !req.user.phone || req.user.phone === '' };
+    res.json({ user });
   } else {
     res.status(401).json({ user: null });
   }

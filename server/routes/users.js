@@ -10,8 +10,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function requireAdmin(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Não autenticado.' });
+  if (req.user.role !== 'administrador') return res.status(403).json({ error: 'Acesso restrito a administradores.' });
+  next();
+}
+
 // GET /api/users?search=&page=&limit=
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
   const search = req.query.search?.trim() || '';
   const page   = Math.max(1, parseInt(req.query.page)  || 1);
   const limit  = Math.min(50, parseInt(req.query.limit) || 10);
@@ -37,7 +43,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // POST /api/users — cadastro manual
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   const { name, email, phone, role } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nome e e-mail são obrigatórios.' });
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: 'Perfil inválido.' });
@@ -57,7 +63,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // PUT /api/users/:id
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   const { name, email, phone, role } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nome e e-mail são obrigatórios.' });
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: 'Perfil inválido.' });
@@ -78,7 +84,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/users/:id
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
     res.json({ ok: true });

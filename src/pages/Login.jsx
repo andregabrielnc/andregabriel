@@ -126,7 +126,7 @@ const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-border text-sm tex
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function Login({ onBack, onSuccess, resetToken: initialResetToken }) {
+export default function Login({ onBack, onSuccess, resetToken: initialResetToken, mode, user: currentUser }) {
   // Register
   const [regName,     setRegName]     = useState('');
   const [regEmail,    setRegEmail]    = useState('');
@@ -157,6 +157,11 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
   const [resetError,    setResetError]    = useState('');
   const [resetLoading,  setResetLoading]  = useState(false);
   const [resetSuccess,  setResetSuccess]  = useState(false);
+
+  // Complete profile (phone after Google signup)
+  const [cpPhone,   setCpPhone]   = useState('');
+  const [cpError,   setCpError]   = useState('');
+  const [cpLoading, setCpLoading] = useState(false);
 
   const { ready, execute } = useRecaptcha();
 
@@ -306,6 +311,70 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
     }
   };
 
+  // ── Complete profile (telefone após Google signup) ──────────────────────
+  const handleCompleteProfile = async (e) => {
+    e.preventDefault();
+    setCpError('');
+    if (cpPhone.length < 10) return setCpError('Celular inválido (inclua o DDD).');
+
+    setCpLoading(true);
+    try {
+      const res = await fetch('/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: cpPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok) return setCpError(data.error || 'Erro ao salvar.');
+      onSuccess(data.user);
+    } catch {
+      setCpError('Erro de conexão. Tente novamente.');
+    } finally {
+      setCpLoading(false);
+    }
+  };
+
+  // ── Tela de completar perfil ───────────────────────────────────────────
+  if (mode === 'complete-profile') {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col">
+        <header className="bg-white border-b border-border px-6 h-16 flex items-center justify-between shrink-0">
+          <div />
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm font-heading">AG</div>
+        </header>
+        <div className="flex-1 flex items-start justify-center pt-16 px-4">
+          <div className="bg-white rounded-2xl border border-border p-10 shadow-sm max-w-sm w-full flex flex-col items-center gap-5">
+            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-primary/20 flex items-center justify-center bg-primary/10 shrink-0">
+              {currentUser?.picture
+                ? <img src={currentUser.picture} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                : <span className="text-3xl font-bold text-primary">{currentUser?.name?.[0]}</span>
+              }
+            </div>
+            <h2 className="text-xl font-bold text-text font-heading">Quase lá, {currentUser?.name?.split(' ')[0]}!</h2>
+            <p className="text-sm text-text-muted text-center leading-relaxed">
+              Para completar seu cadastro, precisamos do seu número de celular.
+            </p>
+            <form onSubmit={handleCompleteProfile} className="flex flex-col gap-3 w-full">
+              <div>
+                <label className="block text-sm font-medium text-text mb-1">Celular</label>
+                <PhoneInput value={cpPhone} onChange={setCpPhone} className={inputCls} />
+              </div>
+              <ErrorBox msg={cpError} />
+              <button
+                type="submit"
+                disabled={cpLoading}
+                className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {cpLoading ? 'Salvando...' : 'Concluir cadastro'}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Tela de redefinição de senha ────────────────────────────────────────
   if (resetToken) {
     return (
@@ -446,7 +515,7 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
         <p className="text-sm text-text-muted leading-relaxed">
           Enviamos um link de confirmação para<br />
           <strong className="text-text">{pendingEmail}</strong><br />
-          O link expira em <strong>30 minutos</strong>.
+          O link expira em <strong>24 horas</strong>.
         </p>
         <div className="flex flex-col gap-2 w-full">
           <button
@@ -644,7 +713,7 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
             </button>
 
             <p className="text-xs text-center text-text-muted">
-              Contas Google só funcionam se o e-mail estiver cadastrado.
+              Se você já tem conta, o Google será vinculado automaticamente.
             </p>
 
             {SITE_KEY && (
