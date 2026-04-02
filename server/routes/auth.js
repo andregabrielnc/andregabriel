@@ -106,7 +106,17 @@ router.post('/register', async (req, res) => {
 
     res.json({ ok: true, pending: true });
   } catch (e) {
-    if (e.code === '23505') return res.status(400).json({ error: 'E-mail já cadastrado. Tente entrar.' });
+    if (e.code === '23505') {
+      // Verifica se o cadastro existe mas não foi verificado
+      const { rows } = await pool.query(
+        'SELECT email_verified FROM users WHERE email = $1',
+        [email.trim().toLowerCase()]
+      );
+      if (rows[0] && !rows[0].email_verified) {
+        return res.status(409).json({ error: 'pending_verification', email: email.trim().toLowerCase() });
+      }
+      return res.status(400).json({ error: 'E-mail já cadastrado. Tente entrar.' });
+    }
     return res.status(500).json({ error: 'Erro interno. Tente novamente.' });
   }
 });

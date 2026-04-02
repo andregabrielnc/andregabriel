@@ -137,6 +137,7 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
   const [pendingEmail, setPendingEmail] = useState('');
   const [resendMsg,   setResendMsg]   = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
+  const [pendingResend, setPendingResend] = useState(false); // true = cadastro já existe, mostra reenviar
 
   // Login
   const [loginEmail,    setLoginEmail]    = useState('');
@@ -217,8 +218,13 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
         body: JSON.stringify({ name: regName, email: regEmail, phone: regPhone, password: regPassword, recaptchaToken }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.error === 'pending_verification') {
+        setPendingEmail(data.email || regEmail);
+        setPendingResend(true);
+        return;
+      }
       if (!res.ok) return setRegError(data.error || 'Erro ao cadastrar.');
-      if (data.pending) { setPendingEmail(regEmail); return; }
+      if (data.pending) { setPendingEmail(regEmail); setPendingResend(false); return; }
       onSuccess(data.user);
     } catch {
       setRegError('Erro de conexão. Tente novamente.');
@@ -542,11 +548,45 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
               Sua conta foi ativada com sucesso.<br />Agora você pode fazer login.
             </p>
             <button
-              onClick={() => { setPendingEmail(''); setEmailVerified(false); }}
+              onClick={() => { setPendingEmail(''); setEmailVerified(false); setPendingResend(false); }}
               className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
             >
               Ir para o Login
             </button>
+          </>
+        ) : pendingResend ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-text font-heading">Cadastro pendente</h2>
+            <p className="text-sm text-text-muted leading-relaxed">
+              Já existe um cadastro para<br />
+              <strong className="text-text">{pendingEmail}</strong><br />
+              que ainda não foi confirmado.
+            </p>
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              Aguardando confirmação...
+            </div>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={handleResend}
+                className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Reenviar e-mail de confirmação
+              </button>
+              {resendMsg && (
+                <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
+                  {resendMsg}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
           </>
         ) : (
           <>
@@ -566,19 +606,12 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
               <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               Aguardando confirmação...
             </div>
-            <div className="flex flex-col gap-2 w-full">
-              <button
-                onClick={handleResend}
-                className="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Reenviar e-mail
-              </button>
-              {resendMsg && (
-                <p className={`text-xs ${resendMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
-                  {resendMsg}
-                </p>
-              )}
-            </div>
+            <button
+              onClick={() => { setPendingEmail(''); setPendingResend(false); }}
+              className="w-full py-2.5 border border-border rounded-lg text-sm font-medium text-text hover:bg-bg transition-colors"
+            >
+              Ok
+            </button>
             <p className="text-xs text-text-dim">Verifique também a pasta de spam.</p>
           </>
         )}
