@@ -51,8 +51,8 @@ router.post('/', requireAdmin, async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO users (name, email, phone, role)
-       VALUES ($1, $2, $3, $4) RETURNING id, name, email, phone, role, created_at`,
+      `INSERT INTO users (name, email, phone, role, email_verified)
+       VALUES ($1, $2, $3, $4, TRUE) RETURNING id, name, email, phone, role, created_at`,
       [name.trim(), email.trim().toLowerCase(), phoneClean, role || 'aluno']
     );
     res.json(rows[0]);

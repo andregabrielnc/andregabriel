@@ -43,13 +43,18 @@ passport.use(new GoogleStrategy(
     const name     = profile.displayName;
 
     try {
+      // Google prova identidade do email — seguro marcar como verificado.
+      // Se conta já existe, vincula google_id e promove para 'aluno' se ainda era 'temporario'.
       const { rows } = await pool.query(`
-        INSERT INTO users (name, email, google_id, picture, email_verified)
-        VALUES ($1, $2, $3, $4, TRUE)
+        INSERT INTO users (name, email, google_id, picture, email_verified, role)
+        VALUES ($1, $2, $3, $4, TRUE, 'temporario')
         ON CONFLICT (email) DO UPDATE
-          SET google_id       = COALESCE(users.google_id, EXCLUDED.google_id),
-              picture         = EXCLUDED.picture,
-              email_verified  = TRUE
+          SET google_id            = COALESCE(users.google_id, EXCLUDED.google_id),
+              picture              = EXCLUDED.picture,
+              email_verified       = TRUE,
+              verification_token   = NULL,
+              verification_expires = NULL,
+              role                 = CASE WHEN users.role = 'temporario' THEN 'aluno' ELSE users.role END
         RETURNING *
       `, [name, email, googleId, picture]);
 
@@ -188,6 +193,7 @@ router.get('/google/callback', (req, res, next) => {
 router.get('/verify/:token', async (req, res) => {
   const base = process.env.FRONTEND_URL || 'http://localhost:5173';
   try {
+    // Tenta verificar o email
     const { rows } = await pool.query(
       `UPDATE users
          SET email_verified = TRUE,
@@ -199,15 +205,30 @@ router.get('/verify/:token', async (req, res) => {
       [req.params.token]
     );
 
-    if (!rows[0]) {
-      return res.redirect(`${base}/?verify_error=expired`);
+    if (rows[0]) {
+      sendWelcomeEmail(rows[0].email, rows[0].name).catch(() => {});
+      return res.redirect(`${base}/?verified=1`);
     }
 
-    // Envia email de boas-vindas (não bloqueia o redirect)
-    sendWelcomeEmail(rows[0].email, rows[0].name).catch(() => {});
+    // UPDATE não afetou nenhuma linha — verifica o motivo
+    const { rows: check } = await pool.query(
+      'SELECT email_verified, verification_expires FROM users WHERE verification_token = $1',
+      [req.params.token]
+    );
 
-    // NÃO faz auto-login — redireciona para página de confirmação
-    res.redirect(`${base}/?verified=1`);
+    if (!check[0]) {
+      // Token não existe — provavelmente já foi verificado e limpo
+      // Redireciona para sucesso (idempotente)
+      return res.redirect(`${base}/?verified=1`);
+    }
+
+    if (check[0].email_verified) {
+      // Já verificado — redireciona para sucesso
+      return res.redirect(`${base}/?verified=1`);
+    }
+
+    // Token existe mas expirou
+    return res.redirect(`${base}/?verify_error=expired`);
   } catch {
     res.redirect(`${base}/?verify_error=server`);
   }

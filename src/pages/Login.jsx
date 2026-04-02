@@ -138,6 +138,7 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
   const [resendMsg,   setResendMsg]   = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [pendingResend, setPendingResend] = useState(false); // true = cadastro já existe, mostra reenviar
+  const [mailError, setMailError] = useState(false); // true = email falhou ao enviar
 
   // Login
   const [loginEmail,    setLoginEmail]    = useState('');
@@ -224,7 +225,12 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
         return;
       }
       if (!res.ok) return setRegError(data.error || 'Erro ao cadastrar.');
-      if (data.pending) { setPendingEmail(regEmail); setPendingResend(false); return; }
+      if (data.pending) {
+        setPendingEmail(regEmail);
+        setPendingResend(false);
+        if (data.mailError) { setMailError(true); setPendingResend(true); }
+        return;
+      }
       onSuccess(data.user);
     } catch {
       setRegError('Erro de conexão. Tente novamente.');
@@ -563,11 +569,19 @@ export default function Login({ onBack, onSuccess, resetToken: initialResetToken
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-text font-heading">Cadastro pendente</h2>
+            <h2 className="text-xl font-bold text-text font-heading">
+              {mailError ? 'Erro ao enviar e-mail' : 'Cadastro pendente'}
+            </h2>
             <p className="text-sm text-text-muted leading-relaxed">
-              Já existe um cadastro para<br />
-              <strong className="text-text">{pendingEmail}</strong><br />
-              que ainda não foi confirmado.
+              {mailError ? (
+                <>Não conseguimos enviar o e-mail de confirmação para<br />
+                <strong className="text-text">{pendingEmail}</strong><br />
+                Tente reenviar clicando no botão abaixo.</>
+              ) : (
+                <>Já existe um cadastro para<br />
+                <strong className="text-text">{pendingEmail}</strong><br />
+                que ainda não foi confirmado.</>
+              )}
             </p>
             <div className="flex items-center gap-2 text-xs text-text-muted">
               <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
