@@ -4,6 +4,7 @@ import {
   Box, Drawer, AppBar, Toolbar, IconButton, Typography, List, ListItemButton,
   ListItemIcon, ListItemText, Divider, Avatar, Menu, MenuItem, Breadcrumbs,
   Link as MuiLink, CircularProgress, Tooltip, useMediaQuery, CssBaseline,
+  Tabs, Tab,
 } from '@mui/material';
 import { createTheme, ThemeProvider, styled, alpha } from '@mui/material/styles';
 import {
@@ -62,11 +63,10 @@ const SIDEBAR_BG   = '#1b2536';
 const SIDEBAR_DARK = '#151d2b';
 
 const MENU_ITEMS: MenuItemDef[] = [
-  { id: 'dashboard',  label: 'Início',             icon: <DashboardIcon />,  breadcrumb: ['Início'] },
-  { id: 'flashcards', label: 'Flashcards',          icon: <FlashcardsIcon />, breadcrumb: ['Ferramentas', 'Flashcards'] },
-  { id: 'questoes',   label: 'Questões EBSERH',     icon: <QuestoesIcon />,   breadcrumb: ['Ferramentas', 'Questões EBSERH'] },
-  { id: 'editais',    label: 'Editais de Concurso',  icon: <EditaisIcon />,    breadcrumb: ['Gestão', 'Editais de Concurso'] },
-  { id: 'cadastros',  label: 'Cadastros',           icon: <CadastrosIcon />,  breadcrumb: ['Administração', 'Cadastros'] },
+  { id: 'dashboard',  label: 'Início',         icon: <DashboardIcon />,  breadcrumb: ['Início'] },
+  { id: 'flashcards', label: 'Flashcards',      icon: <FlashcardsIcon />, breadcrumb: ['Ferramentas', 'Flashcards'] },
+  { id: 'questoes',   label: 'Questões EBSERH', icon: <QuestoesIcon />,   breadcrumb: ['Ferramentas', 'Questões EBSERH'] },
+  { id: 'cadastros',  label: 'Cadastros',       icon: <CadastrosIcon />,  breadcrumb: ['Administração', 'Cadastros'] },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -284,6 +284,36 @@ function DrawerContent({ open, active, user, onNavigate, onToggle, onLogout }: D
             {open && <ListItemText primary="Sair" primaryTypographyProps={{ fontSize: '0.82rem' }} />}
           </ListItemButton>
         </Tooltip>
+      </Box>
+    </Box>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Cadastros with Tabs (Usuários + Editais)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CadastrosWithTabs() {
+  const [tab, setTab] = useState(0);
+  return (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', px: 2 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          sx={{
+            '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: '0.875rem' },
+          }}
+        >
+          <Tab icon={<CadastrosIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Usuários" />
+          <Tab icon={<EditaisIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Editais" />
+        </Tabs>
+      </Box>
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <Suspense fallback={PageLoader}>
+          {tab === 0 && <Cadastros />}
+          {tab === 1 && <Editais />}
+        </Suspense>
       </Box>
     </Box>
   );
@@ -510,8 +540,7 @@ export default function AreaDoAluno({ user, onExit }: AreaDoAlunoProps) {
               {active === 'dashboard'  && <DashboardPage user={user} />}
               {active === 'flashcards' && <Flashcards embedded />}
               {active === 'questoes'   && <QuestoesEBSERH embedded />}
-              {active === 'editais'    && <Editais />}
-              {active === 'cadastros'  && <Cadastros />}
+              {active === 'cadastros'  && <CadastrosWithTabs />}
             </Suspense>
           </Box>
         </Main>
