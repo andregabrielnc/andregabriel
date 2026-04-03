@@ -38,6 +38,12 @@ const compactInput = {
 
 const uid = () => crypto.randomUUID();
 
+// Mobile-safe touch targets (min 44px)
+const touchBtn = { p: { xs: 1, sm: 0.5 }, minWidth: { xs: 36, sm: 'auto' }, minHeight: { xs: 36, sm: 'auto' } };
+const touchBtnSm = { p: { xs: 0.75, sm: 0.5 }, minWidth: { xs: 32, sm: 'auto' }, minHeight: { xs: 32, sm: 'auto' } };
+const iconSz = { fontSize: { xs: 20, sm: 20 } };
+const iconSzSm = { fontSize: { xs: 18, sm: 18 } };
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Types
 // ═════════════════════════════════════════════════════════════════════════════
@@ -577,29 +583,29 @@ const ConteudoPage: React.FC = () => {
             </Typography>
 
             <Box sx={{ mb: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
                 <TextField value={newBasicoTitulo} onChange={(e) => setNewBasicoTitulo(e.target.value)}
                   sx={{ flex: 1, maxWidth: { sm: 340 }, ...compactInput }} size="small" placeholder="Nome do tópico"
                   onKeyDown={(e) => { if (e.key === 'Enter' && !newBasicoSubs.length) saveNewBasico(); }} />
-                <IconButton size="small" color="primary" onClick={addNewBasicoSub} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                  <Add sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                <IconButton size="small" color="primary" onClick={addNewBasicoSub} sx={touchBtnSm}>
+                  <Add sx={iconSz} />
                 </IconButton>
               </Box>
               {newBasicoSubs.map((sub, sIdx) => (
-                <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, ml: { xs: 2, sm: 5 }, mt: 0.25 }}>
+                <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, ml: { xs: 1.5, sm: 4 }, mt: 0.25 }}>
                   <Typography sx={{ fontSize: '0.8125rem', minWidth: 28, color: '#5f6368', flexShrink: 0 }}>{sIdx + 1}</Typography>
                   <TextField value={sub.titulo} onChange={(e) => updateNewBasicoSub(sub.id, e.target.value)}
                     sx={{ flex: 1, ...compactInput }} size="small" placeholder="Sub-tópico" />
-                  <IconButton size="small" color="error" onClick={() => removeNewBasicoSub(sub.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                    <Delete sx={{ fontSize: { xs: 14, sm: 18 } }} />
+                  <IconButton size="small" color="error" onClick={() => removeNewBasicoSub(sub.id)} sx={touchBtnSm}>
+                    <Delete sx={iconSzSm} />
                   </IconButton>
                 </Box>
               ))}
             </Box>
 
-            <Button size="small" onClick={saveNewBasico} disabled={saving || !newBasicoTitulo.trim()}
-              sx={{ color: PRIMARY, fontWeight: 600, textTransform: 'none', mb: 1 }}>
-              {saving ? 'Salvando...' : 'Salvar Tópico'}
+            <Button variant="contained" size="small" onClick={saveNewBasico} disabled={saving || !newBasicoTitulo.trim()}
+              sx={{ bgcolor: PRIMARY, textTransform: 'none', mb: 1 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
             </Button>
 
             {/* ── Tabela de cadastrados ── */}
@@ -667,8 +673,8 @@ const ConteudoPage: React.FC = () => {
                             <React.Fragment key={b.id}>
                               <TableRow hover>
                                 <TableCell sx={{ px: 0.5 }}>
-                                  <IconButton size="small" onClick={toggleExpand} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                                    {isExpanded ? <Remove sx={{ fontSize: { xs: 16, sm: 20 } }} /> : <Add sx={{ fontSize: { xs: 16, sm: 20 } }} />}
+                                  <IconButton size="small" onClick={toggleExpand} sx={touchBtnSm} aria-label={isExpanded ? 'Ocultar' : 'Expandir'}>
+                                    {isExpanded ? <Remove sx={iconSz} /> : <Add sx={iconSz} />}
                                   </IconButton>
                                 </TableCell>
                                 <TableCell sx={{ fontWeight: 600, color: '#202124', display: { xs: 'none', sm: 'table-cell' } }}>
@@ -689,13 +695,13 @@ const ConteudoPage: React.FC = () => {
                                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                   {isEditing ? (
                                     <>
-                                      <IconButton size="small" color="primary" onClick={() => saveEditBasico(b.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Save sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                                      <IconButton size="small" onClick={() => setEditingBasicoId(null)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Close sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                                      <IconButton size="small" color="primary" onClick={() => saveEditBasico(b.id)} sx={touchBtn} aria-label="Salvar"><Save sx={iconSz} /></IconButton>
+                                      <IconButton size="small" onClick={() => setEditingBasicoId(null)} sx={touchBtn} aria-label="Cancelar"><Close sx={iconSz} /></IconButton>
                                     </>
                                   ) : (
                                     <>
-                                      <IconButton size="small" onClick={() => startEditBasico(b)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Edit sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                                      <IconButton size="small" color="error" onClick={() => setDeleteBasicoDialog({ open: true, id: b.id })} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Delete sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                                      <IconButton size="small" onClick={() => startEditBasico(b)} sx={touchBtn} aria-label="Editar"><Edit sx={iconSz} /></IconButton>
+                                      <IconButton size="small" color="error" onClick={() => setDeleteBasicoDialog({ open: true, id: b.id })} sx={touchBtn} aria-label="Excluir"><Delete sx={iconSz} /></IconButton>
                                     </>
                                   )}
                                 </TableCell>
@@ -711,11 +717,11 @@ const ConteudoPage: React.FC = () => {
                                               <Typography sx={{ fontSize: '0.8125rem', minWidth: 30, color: '#5f6368', flexShrink: 0 }}>{b.numero}.{sIdx + 1}</Typography>
                                               <TextField value={sub.titulo} onChange={(e) => updateEditBasicoSub(sub.id, e.target.value)}
                                                 size="small" sx={{ flex: 1, ...inlineInput }} placeholder="Sub-tópico" />
-                                              <IconButton size="small" color="primary" onClick={() => saveEditBasico(b.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                                                <Save sx={{ fontSize: { xs: 14, sm: 18 } }} />
+                                              <IconButton size="small" color="primary" onClick={() => saveEditBasico(b.id)} sx={touchBtnSm}>
+                                                <Save sx={iconSzSm} />
                                               </IconButton>
-                                              <IconButton size="small" color="error" onClick={() => removeEditBasicoSub(sub.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                                                <Delete sx={{ fontSize: { xs: 14, sm: 18 } }} />
+                                              <IconButton size="small" color="error" onClick={() => removeEditBasicoSub(sub.id)} sx={touchBtnSm}>
+                                                <Delete sx={iconSzSm} />
                                               </IconButton>
                                             </Box>
                                           ))}
@@ -783,29 +789,29 @@ const ConteudoPage: React.FC = () => {
             </Typography>
 
             <Box sx={{ mb: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
                 <TextField value={newEspTitulo} onChange={(e) => setNewEspTitulo(e.target.value)}
                   sx={{ flex: 1, maxWidth: { sm: 340 }, ...compactInput }} size="small" placeholder="Nome do tópico"
                   onKeyDown={(e) => { if (e.key === 'Enter' && !newEspSubs.length) saveNewEspecifico(); }} />
-                <IconButton size="small" color="primary" onClick={addNewEspSub} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                  <Add sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                <IconButton size="small" color="primary" onClick={addNewEspSub} sx={touchBtnSm}>
+                  <Add sx={iconSz} />
                 </IconButton>
               </Box>
               {newEspSubs.map((sub, sIdx) => (
-                <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, ml: { xs: 2, sm: 5 }, mt: 0.25 }}>
+                <Box key={sub.id} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, ml: { xs: 1.5, sm: 4 }, mt: 0.25 }}>
                   <Typography sx={{ fontSize: '0.8125rem', minWidth: 28, color: '#5f6368', flexShrink: 0 }}>{sIdx + 1}</Typography>
                   <TextField value={sub.titulo} onChange={(e) => updateNewEspSub(sub.id, e.target.value)}
                     sx={{ flex: 1, ...compactInput }} size="small" placeholder="Sub-tópico" />
-                  <IconButton size="small" color="error" onClick={() => removeNewEspSub(sub.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                    <Delete sx={{ fontSize: { xs: 14, sm: 18 } }} />
+                  <IconButton size="small" color="error" onClick={() => removeNewEspSub(sub.id)} sx={touchBtnSm}>
+                    <Delete sx={iconSzSm} />
                   </IconButton>
                 </Box>
               ))}
             </Box>
 
-            <Button size="small" onClick={saveNewEspecifico} disabled={saving || !newEspTitulo.trim()}
-              sx={{ color: PRIMARY, fontWeight: 600, textTransform: 'none', mb: 1 }}>
-              {saving ? 'Salvando...' : 'Salvar Tópico'}
+            <Button variant="contained" size="small" onClick={saveNewEspecifico} disabled={saving || !newEspTitulo.trim()}
+              sx={{ bgcolor: PRIMARY, textTransform: 'none', mb: 1 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
             </Button>
 
             <Divider sx={{ my: 2 }} />
@@ -869,8 +875,8 @@ const ConteudoPage: React.FC = () => {
                             <React.Fragment key={b.id}>
                               <TableRow hover>
                                 <TableCell sx={{ px: 0.5 }}>
-                                  <IconButton size="small" onClick={toggleExpand} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                                    {isExpanded ? <Remove sx={{ fontSize: { xs: 16, sm: 20 } }} /> : <Add sx={{ fontSize: { xs: 16, sm: 20 } }} />}
+                                  <IconButton size="small" onClick={toggleExpand} sx={touchBtnSm} aria-label={isExpanded ? 'Ocultar' : 'Expandir'}>
+                                    {isExpanded ? <Remove sx={iconSz} /> : <Add sx={iconSz} />}
                                   </IconButton>
                                 </TableCell>
                                 <TableCell sx={{ fontWeight: 600, color: '#202124', display: { xs: 'none', sm: 'table-cell' } }}>
@@ -891,13 +897,13 @@ const ConteudoPage: React.FC = () => {
                                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                   {isEditing ? (
                                     <>
-                                      <IconButton size="small" color="primary" onClick={() => saveEditEsp(b.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Save sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                                      <IconButton size="small" onClick={() => setEditingEspId(null)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Close sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                                      <IconButton size="small" color="primary" onClick={() => saveEditEsp(b.id)} sx={touchBtn} aria-label="Salvar"><Save sx={iconSz} /></IconButton>
+                                      <IconButton size="small" onClick={() => setEditingEspId(null)} sx={touchBtn} aria-label="Cancelar"><Close sx={iconSz} /></IconButton>
                                     </>
                                   ) : (
                                     <>
-                                      <IconButton size="small" onClick={() => startEditEsp(b)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Edit sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                                      <IconButton size="small" color="error" onClick={() => setDeleteEspDialog({ open: true, id: b.id })} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Delete sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                                      <IconButton size="small" onClick={() => startEditEsp(b)} sx={touchBtn} aria-label="Editar"><Edit sx={iconSz} /></IconButton>
+                                      <IconButton size="small" color="error" onClick={() => setDeleteEspDialog({ open: true, id: b.id })} sx={touchBtn} aria-label="Excluir"><Delete sx={iconSz} /></IconButton>
                                     </>
                                   )}
                                 </TableCell>
@@ -913,11 +919,11 @@ const ConteudoPage: React.FC = () => {
                                               <Typography sx={{ fontSize: '0.8125rem', minWidth: 30, color: '#5f6368', flexShrink: 0 }}>{b.numero}.{sIdx + 1}</Typography>
                                               <TextField value={sub.titulo} onChange={(e) => updateEditEspSub(sub.id, e.target.value)}
                                                 size="small" sx={{ flex: 1, ...inlineInput }} placeholder="Sub-tópico" />
-                                              <IconButton size="small" color="primary" onClick={() => saveEditEsp(b.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                                                <Save sx={{ fontSize: { xs: 14, sm: 18 } }} />
+                                              <IconButton size="small" color="primary" onClick={() => saveEditEsp(b.id)} sx={touchBtnSm}>
+                                                <Save sx={iconSzSm} />
                                               </IconButton>
-                                              <IconButton size="small" color="error" onClick={() => removeEditEspSub(sub.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}>
-                                                <Delete sx={{ fontSize: { xs: 14, sm: 18 } }} />
+                                              <IconButton size="small" color="error" onClick={() => removeEditEspSub(sub.id)} sx={touchBtnSm}>
+                                                <Delete sx={iconSzSm} />
                                               </IconButton>
                                             </Box>
                                           ))}
@@ -1017,11 +1023,11 @@ const ConteudoPage: React.FC = () => {
                       ) : b.nome}
                     </TableCell><TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {editingBancaId === b.id ? (<>
-                        <IconButton size="small" color="primary" onClick={() => saveBanca(b.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Save sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                        <IconButton size="small" onClick={() => setEditingBancaId(null)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Close sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                        <IconButton size="small" color="primary" onClick={() => saveBanca(b.id)} sx={touchBtn} aria-label="Salvar"><Save sx={iconSz} /></IconButton>
+                        <IconButton size="small" onClick={() => setEditingBancaId(null)} sx={touchBtn} aria-label="Cancelar"><Close sx={iconSz} /></IconButton>
                       </>) : (<>
-                        <IconButton size="small" onClick={() => { setEditingBancaId(b.id); setEditingBancaNome(b.nome); }} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Edit sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => setDeleteBancaDialog({ open: true, id: b.id })} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Delete sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                        <IconButton size="small" onClick={() => { setEditingBancaId(b.id); setEditingBancaNome(b.nome); }} sx={touchBtn} aria-label="Editar"><Edit sx={iconSz} /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => setDeleteBancaDialog({ open: true, id: b.id })} sx={touchBtn} aria-label="Excluir"><Delete sx={iconSz} /></IconButton>
                       </>)}
                     </TableCell></TableRow>
                   ))}
@@ -1089,11 +1095,11 @@ const ConteudoPage: React.FC = () => {
                       ) : o.nome}
                     </TableCell><TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {editingOrgaoId === o.id ? (<>
-                        <IconButton size="small" color="primary" onClick={() => saveOrgao(o.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Save sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                        <IconButton size="small" onClick={() => setEditingOrgaoId(null)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Close sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                        <IconButton size="small" color="primary" onClick={() => saveOrgao(o.id)} sx={touchBtn} aria-label="Salvar"><Save sx={iconSz} /></IconButton>
+                        <IconButton size="small" onClick={() => setEditingOrgaoId(null)} sx={touchBtn} aria-label="Cancelar"><Close sx={iconSz} /></IconButton>
                       </>) : (<>
-                        <IconButton size="small" onClick={() => { setEditingOrgaoId(o.id); setEditingOrgaoNome(o.nome); }} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Edit sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => setDeleteOrgaoDialog({ open: true, id: o.id })} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Delete sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                        <IconButton size="small" onClick={() => { setEditingOrgaoId(o.id); setEditingOrgaoNome(o.nome); }} sx={touchBtn} aria-label="Editar"><Edit sx={iconSz} /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => setDeleteOrgaoDialog({ open: true, id: o.id })} sx={touchBtn} aria-label="Excluir"><Delete sx={iconSz} /></IconButton>
                       </>)}
                     </TableCell></TableRow>
                   ))}
@@ -1144,14 +1150,14 @@ const ConteudoPage: React.FC = () => {
                 <MenuItem value="superior">Superior</MenuItem>
                 <MenuItem value="médio">Médio</MenuItem>
               </Select>
-              <Button variant="contained" size="small" onClick={addCargo} disabled={saving || !cargoNome.trim()}
+              <Button variant="contained" size="small" onClick={addCargo} disabled={saving || !cargoNome.trim() || !cargoNivel}
                 sx={{ bgcolor: PRIMARY, textTransform: 'none', whiteSpace: 'nowrap' }}>
                 Adicionar
               </Button>
             </Box>
 
             <TextField
-              size="small" placeholder="Buscar cargo..."
+              size="small" placeholder="Buscar por cargo ou nível..."
               value={cargosSearch}
               onChange={(e) => { setCargosSearch(e.target.value); setCargosPage(0); }}
               sx={{ mb: 2, width: { xs: '100%', sm: 360 }, ...compactInput }}
@@ -1216,13 +1222,13 @@ const ConteudoPage: React.FC = () => {
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
                               {editingCargoId === c.id ? (
                                 <>
-                                  <IconButton size="small" color="primary" onClick={() => saveCargo(c.id)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Save sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                                  <IconButton size="small" onClick={() => setEditingCargoId(null)} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Close sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                                  <IconButton size="small" color="primary" onClick={() => saveCargo(c.id)} sx={touchBtn} aria-label="Salvar"><Save sx={iconSz} /></IconButton>
+                                  <IconButton size="small" onClick={() => setEditingCargoId(null)} sx={touchBtn} aria-label="Cancelar"><Close sx={iconSz} /></IconButton>
                                 </>
                               ) : (
                                 <>
-                                  <IconButton size="small" onClick={() => { setEditingCargoId(c.id); setEditingCargoNome(c.nome); setEditingCargoNivel(c.nivel); }} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Edit sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
-                                  <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, id: c.id })} sx={{ p: { xs: 0.25, sm: 0.5 } }}><Delete sx={{ fontSize: { xs: 16, sm: 20 } }} /></IconButton>
+                                  <IconButton size="small" onClick={() => { setEditingCargoId(c.id); setEditingCargoNome(c.nome); setEditingCargoNivel(c.nivel); }} sx={touchBtn} aria-label="Editar"><Edit sx={iconSz} /></IconButton>
+                                  <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, id: c.id })} sx={touchBtn} aria-label="Excluir"><Delete sx={iconSz} /></IconButton>
                                 </>
                               )}
                             </TableCell>
