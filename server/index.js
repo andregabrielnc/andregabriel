@@ -11,6 +11,7 @@ import flashcardsRouter from './routes/flashcards.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import editaisRouter from './routes/editais.js';
+import conteudosRouter from './routes/conteudos.js';
 import { initDb, pool } from './db.js';
 
 const app = express();
@@ -104,6 +105,7 @@ app.post('/auth/check-verification', apiLimiter, async (req, res) => {
 app.use('/auth', authLimiter, authRouter);
 app.use('/api/users', apiLimiter, usersRouter);
 app.use('/api/editais', apiLimiter, editaisRouter);
+app.use('/api/conteudos', apiLimiter, conteudosRouter);
 app.use('/api', apiLimiter, flashcardsRouter);
 
 // ── Start ────────────────────────────────────────────────────────────────────

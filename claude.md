@@ -118,3 +118,7 @@ GitHub repo: `andregabrielnc/andregabriel`
 **Coolify (production):** Auto-deploys via GitHub webhook on push to `main`. Dockerfile builds frontend (nginx) + backend (Node.js) in single container. Traefik handles SSL/routing.
 
 **Local dev:** `npm run dev` (frontend :5173) + `node server/index.js` (backend :3001). Vite proxies `/api` and `/auth` to backend.
+
+### Server restart
+- **After any backend change** (routes, db.js, index.js), **always restart the server automatically** — never ask the user to do it.
+- Restart command: `npx kill-port 3001 && node server/index.js` (run in background).

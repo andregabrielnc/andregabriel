@@ -155,6 +155,64 @@ export async function initDb() {
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS cargos JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE editais ADD COLUMN IF NOT EXISTS conteudos_especificos JSONB NOT NULL DEFAULT '[]';
 
+    -- Conteúdos standalone (Cadastros > Conteúdo)
+    CREATE TABLE IF NOT EXISTS conteudos_basicos (
+      id         SERIAL PRIMARY KEY,
+      numero     INT NOT NULL DEFAULT 0,
+      titulo     TEXT NOT NULL DEFAULT '',
+      subtopicos JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE conteudos_basicos ADD COLUMN IF NOT EXISTS numero INT NOT NULL DEFAULT 0;
+
+    -- Fix: renumber any rows stuck at 0
+    WITH numbered AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn
+      FROM conteudos_basicos
+      WHERE numero = 0
+    )
+    UPDATE conteudos_basicos SET numero = numbered.rn
+    FROM numbered WHERE conteudos_basicos.id = numbered.id;
+
+    DROP TABLE IF EXISTS conteudos_especificos;
+    CREATE TABLE IF NOT EXISTS conteudos_especificos (
+      id         SERIAL PRIMARY KEY,
+      numero     INT NOT NULL DEFAULT 0,
+      titulo     TEXT NOT NULL DEFAULT '',
+      subtopicos JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS bancas (
+      id         SERIAL PRIMARY KEY,
+      nome       TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS orgaos (
+      id         SERIAL PRIMARY KEY,
+      nome       TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS cargos (
+      id         SERIAL PRIMARY KEY,
+      nome       TEXT NOT NULL DEFAULT '',
+      nivel      TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Fix: renumber especificos stuck at 0
+    WITH numbered AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn
+      FROM conteudos_especificos
+      WHERE numero = 0
+    )
+    UPDATE conteudos_especificos SET numero = numbered.rn
+    FROM numbered WHERE conteudos_especificos.id = numbered.id;
+
     -- Performance indexes
     CREATE INDEX IF NOT EXISTS idx_cards_deck_active       ON cards (deck_id, active);
     CREATE INDEX IF NOT EXISTS idx_cards_occlusion         ON cards (occlusion_note_id) WHERE occlusion_note_id IS NOT NULL;

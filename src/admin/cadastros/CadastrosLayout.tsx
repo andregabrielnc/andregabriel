@@ -4,6 +4,7 @@ import { colors, typography } from '../theme/tokens';
 
 const Cadastros = lazy(() => import('../../pages/Cadastros'));
 const Editais = lazy(() => import('../../pages/Editais'));
+const Conteudo = lazy(() => import('../../pages/Conteudo'));
 
 const Loader = (
   <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -35,12 +36,14 @@ export default function CadastrosLayout() {
         >
           <Tab label="Usuários" />
           <Tab label="Editais" />
+          <Tab label="Conteúdo" />
         </Tabs>
       </Box>
-      <Box sx={{ flex: 1, overflow: tab === 1 ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box sx={{ flex: 1, overflow: tab === 0 ? 'auto' : 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <Suspense fallback={Loader}>
           {tab === 0 && <Cadastros />}
           {tab === 1 && <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><Editais /></Box>}
+          {tab === 2 && <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><Conteudo /></Box>}
         </Suspense>
       </Box>
     </Box>
