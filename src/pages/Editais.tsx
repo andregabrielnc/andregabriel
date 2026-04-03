@@ -8,193 +8,24 @@ import {
   TableRow, TableCell, TableBody, TableContainer, Chip, Tooltip,
   FormControl, InputLabel, CircularProgress,
   Switch, FormControlLabel, Autocomplete,
+  Accordion, AccordionSummary, AccordionDetails, InputAdornment,
 } from '@mui/material';
 import {
   Add, Delete, Edit, Save, Close, Upload, Description,
-  ArrowBack, ExpandMore, Visibility,
+  ArrowBack, ExpandMore, Visibility, Search,
 } from '@mui/icons-material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+// DataGrid removed — using simple MUI Table for consistency
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Constants
+// Imports from admin modules
 // ═════════════════════════════════════════════════════════════════════════════
 
-const PRIMARY = '#1a73e8';
-const API_URL = '/api/editais';
-const FETCH_OPTS: RequestInit = { credentials: 'include' };
+import { colors } from '../admin/theme/tokens';
+import { API_URL, FETCH_OPTS, STATUS_LABELS, STATUS_COLORS } from '../admin/editais/editaisConstants';
+import { uid, normalizeDate, formatDateBR, emptyEdital, emptyCargo, emptyAnexo, emptyDisciplina, calcDistribuicao } from '../admin/editais/editaisHelpers';
+import type { CotaEdital, Cargo, Anexo, TopicoBasico, Disciplina, Edital, EditalFormFields } from '../admin/editais/editaisTypes';
 
-const STATUS_LABELS: Record<string, string> = {
-  publicado: 'Publicado',
-  inscricoes_abertas: 'Inscrições Abertas',
-  em_andamento: 'Em Andamento',
-  encerrado: 'Encerrado',
-  homologado: 'Homologado',
-};
-
-const STATUS_COLORS: Record<string, 'success' | 'info' | 'default' | 'secondary'> = {
-  publicado: 'info',
-  inscricoes_abertas: 'success',
-  em_andamento: 'info',
-  encerrado: 'default',
-  homologado: 'secondary',
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
-// TypeScript Interfaces
-// ═════════════════════════════════════════════════════════════════════════════
-
-interface CotaEdital {
-  id: string;
-  tipo: 'negro' | 'pcd' | 'indigena';
-  porcentagem: number;  // ex: 20 = 20%
-}
-
-interface Cargo {
-  id: string;
-  nome: string;
-  nivel: 'superior' | 'medio' | 'tecnico' | 'fundamental';
-  vagas_total: number;
-  remuneracao: string;
-  carga_horaria: string;
-  requisitos: string;
-}
-
-/** Calcula distribuição de vagas de um cargo a partir das cotas do edital */
-function calcDistribuicao(vagas_total: number, cotas: CotaEdital[]) {
-  const dist: { tipo: string; label: string; vagas: number }[] = [];
-  let reservadas = 0;
-  for (const c of cotas) {
-    const v = Math.max(0, Math.round(vagas_total * c.porcentagem / 100));
-    const label = c.tipo === 'negro' ? 'Negro' : c.tipo === 'pcd' ? 'PCD' : 'Indígena';
-    dist.push({ tipo: c.tipo, label, vagas: v });
-    reservadas += v;
-  }
-  dist.unshift({ tipo: 'ampla', label: 'Ampla Concorrência', vagas: Math.max(0, vagas_total - reservadas) });
-  return dist;
-}
-
-interface Anexo {
-  id: string;
-  nome: string;
-  arquivo: string;   // filename
-  dados: string;     // base64 data URL
-}
-
-interface SubTopicoBasico {
-  id: string;
-  titulo: string;
-}
-
-interface TopicoBasico {
-  id: string;
-  titulo: string;
-  subtopicos: SubTopicoBasico[];
-}
-
-interface SubTopico {
-  id: string;
-  titulo: string;
-}
-
-interface Topico {
-  id: string;
-  titulo: string;
-  subtopicos: SubTopico[];
-}
-
-interface Disciplina {
-  id: string;
-  nome: string;
-  cargos_aplicaveis: string[];  // IDs dos cargos
-  topicos: Topico[];
-}
-
-interface Edital {
-  id?: number;
-  numero: string;
-  orgao: string;
-  banca: string;
-  link_banca: string;
-  regime: 'CLT' | 'Estatutário';
-  status: 'publicado' | 'inscricoes_abertas' | 'em_andamento' | 'encerrado' | 'homologado';
-  data_publicacao: string;
-  data_inscricao_inicio: string;
-  data_inscricao_fim: string;
-  data_prova: string;
-  validade: string;
-  data_impugnacao_inicio: string;
-  data_impugnacao_fim: string;
-  taxa_inscricao: string;
-  observacoes: string;
-  todos_cargos_basicos: boolean;
-  cotas: CotaEdital[];
-  cargos: Cargo[];
-  anexos: Anexo[];
-  conteudos_basicos: TopicoBasico[];
-  conteudos_especificos: Disciplina[];
-}
-
-// Fields managed by react-hook-form (excludes arrays managed via useState)
-type EditalFormFields = Omit<Edital, 'id' | 'todos_cargos_basicos' | 'cotas' | 'cargos' | 'anexos' | 'conteudos_basicos' | 'conteudos_especificos'>;
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Helpers
-// ═════════════════════════════════════════════════════════════════════════════
-
-const uid = () => crypto.randomUUID();
-
-const normalizeDate = (d: string | undefined | null): string =>
-  d ? d.slice(0, 10) : '';
-
-const formatDateBR = (d: string | undefined | null): string => {
-  if (!d) return '';
-  const clean = String(d).slice(0, 10); // "2025-03-15T00:00:00.000Z" → "2025-03-15"
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return '';
-  const [y, m, day] = clean.split('-');
-  return `${day}/${m}/${y}`;
-};
-
-const emptyEdital = (): EditalFormFields => ({
-  numero: '',
-  orgao: '',
-  banca: '',
-  link_banca: '',
-  regime: 'CLT',
-  status: 'publicado',
-  data_publicacao: '',
-  data_inscricao_inicio: '',
-  data_inscricao_fim: '',
-  data_prova: '',
-  validade: '',
-  data_impugnacao_inicio: '',
-  data_impugnacao_fim: '',
-  taxa_inscricao: '',
-  observacoes: '',
-});
-
-const emptyCargo = (): Cargo => ({
-  id: uid(),
-  nome: '',
-  nivel: 'superior',
-  vagas_total: 0,
-  remuneracao: '',
-  carga_horaria: '',
-  requisitos: '',
-});
-
-const emptyAnexo = (): Anexo => ({
-  id: uid(),
-  nome: '',
-  arquivo: '',
-  dados: '',
-});
-
-const emptyDisciplina = (): Disciplina => ({
-  id: uid(),
-  nome: '',
-  cargos_aplicaveis: [],
-  topicos: [],
-});
+const PRIMARY = colors.primary;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Component
@@ -206,9 +37,15 @@ const EditaisPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Edital | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [listSearch, setListSearch] = useState('');
+  const [listPage, setListPage] = useState(0);
 
   // ── Form tab & dynamic arrays ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState(0);
+  const [sideOpen, setSideOpen] = useState(true);
+  const [cargoSearch, setCargoSearch] = useState('');
+  const [cargoPage, setCargoPage] = useState(0);
+  const [editingCargoId, setEditingCargoId] = useState<string | null>(null);
   const [cotas, setCotas] = useState<CotaEdital[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [anexos, setAnexos] = useState<Anexo[]>([]);
@@ -231,7 +68,7 @@ const EditaisPage: React.FC = () => {
 
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<EditalFormFields>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<EditalFormFields>({
     defaultValues: emptyEdital(),
   });
 
@@ -544,105 +381,134 @@ const EditaisPage: React.FC = () => {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DataGrid Columns
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  const columns: GridColDef[] = [
-    { field: 'numero', headerName: 'Número', flex: 1 },
-    { field: 'orgao', headerName: 'Órgão', flex: 1.5 },
-    { field: 'banca', headerName: 'Banca', flex: 1 },
-    {
-      field: 'status',
-      headerName: 'Status',
-      flex: 1,
-      renderCell: (params) => (
-        <Chip
-          label={STATUS_LABELS[params.value] || params.value}
-          color={STATUS_COLORS[params.value] || 'default'}
-          size="small"
-        />
-      ),
-    },
-    {
-      field: 'data_publicacao',
-      headerName: 'Publicação',
-      flex: 1,
-      renderCell: (params) => formatDateBR(params.value),
-    },
-    {
-      field: 'inscricoes',
-      headerName: 'Inscrições',
-      flex: 1.2,
-      sortable: false,
-      renderCell: (params) => {
-        const r = params.row;
-        const ini = formatDateBR(r.data_inscricao_inicio);
-        const fim = formatDateBR(r.data_inscricao_fim);
-        return ini || fim ? `${ini || '–'} a ${fim || '–'}` : '';
-      },
-    },
-    {
-      field: 'acoes',
-      headerName: 'Ações',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => (
-        <Box>
-          <Tooltip title="Editar">
-            <IconButton size="small" onClick={() => openEdit(params.row.id)}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Excluir">
-            <IconButton size="small" color="error" onClick={() => setDeleteDialog({ open: true, id: params.row.id })}>
-              <Delete fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
-    },
-  ];
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // RENDER — LIST VIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
   if (!editing) {
+    const ROWS_PER_PAGE = 10;
+    const q = listSearch.toLowerCase();
+    const filtered = editais.filter(e =>
+      e.numero.toLowerCase().includes(q) ||
+      e.orgao.toLowerCase().includes(q) ||
+      e.banca.toLowerCase().includes(q) ||
+      (STATUS_LABELS[e.status] || '').toLowerCase().includes(q)
+    );
+    const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
+    const paged = filtered.slice(listPage * ROWS_PER_PAGE, (listPage + 1) * ROWS_PER_PAGE);
+
     return (
       <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" fontWeight="bold">Editais de Concurso</Typography>
-          <Button variant="contained" startIcon={<Add />} sx={{ bgcolor: PRIMARY }} onClick={openNew}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#202124' }}>Editais</Typography>
+            <Typography sx={{ mt: 0.5, color: '#5f6368', fontSize: '0.8125rem' }}>
+              {filtered.length} edital{filtered.length !== 1 ? 'is' : ''}{listSearch ? ' encontrado' + (filtered.length !== 1 ? 's' : '') : ' cadastrado' + (filtered.length !== 1 ? 's' : '')}
+            </Typography>
+          </Box>
+          <Button size="small" startIcon={<Add />} onClick={openNew} sx={{ color: PRIMARY, fontWeight: 600 }}>
             Novo Edital
           </Button>
         </Box>
 
-        <Paper sx={{ height: 500 }}>
-          <DataGrid
-            rows={editais}
-            columns={columns}
-            loading={loading}
-            pageSizeOptions={[10, 25, 50]}
-            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-            disableRowSelectionOnClick
-          />
-        </Paper>
+        {/* Search */}
+        <TextField
+          size="small"
+          placeholder="Buscar por número, órgão, banca ou status..."
+          value={listSearch}
+          onChange={(e) => { setListSearch(e.target.value); setListPage(0); }}
+          sx={{ mb: 2, width: { xs: '100%', sm: 360 } }}
+          slotProps={{
+            input: {
+              startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: '#9aa0a6' }} /></InputAdornment>,
+              endAdornment: listSearch ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => { setListSearch(''); setListPage(0); }}><Close sx={{ fontSize: 16 }} /></IconButton>
+                </InputAdornment>
+              ) : null,
+            },
+          }}
+        />
+
+        {/* Table */}
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Número</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Órgão</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Banca</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Publicação</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Inscrições</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem', width: 90 }}>Ações</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
+              ) : paged.length === 0 ? (
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: '#5f6368' }}>
+                  {listSearch ? 'Nenhum edital encontrado.' : 'Nenhum edital cadastrado.'}
+                </TableCell></TableRow>
+              ) : paged.map((e) => (
+                <TableRow key={e.id} hover>
+                  <TableCell>{e.numero}</TableCell>
+                  <TableCell>{e.orgao}</TableCell>
+                  <TableCell>{e.banca || '—'}</TableCell>
+                  <TableCell>
+                    <Chip label={STATUS_LABELS[e.status] || e.status} color={STATUS_COLORS[e.status] || 'default'} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell>{formatDateBR(e.data_publicacao) || '—'}</TableCell>
+                  <TableCell>
+                    {formatDateBR(e.data_inscricao_inicio) || formatDateBR(e.data_inscricao_fim)
+                      ? `${formatDateBR(e.data_inscricao_inicio) || '–'} a ${formatDateBR(e.data_inscricao_fim) || '–'}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Editar">
+                        <IconButton size="small" onClick={() => openEdit(e.id!)} sx={{ color: PRIMARY }}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Excluir">
+                        <IconButton size="small" color="error" onClick={() => setDeleteDialog({ open: true, id: e.id })}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+            <Typography variant="caption" color="text.secondary">
+              Página {listPage + 1} de {totalPages}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button size="small" disabled={listPage === 0} onClick={() => setListPage(p => p - 1)}>Anterior</Button>
+              <Button size="small" disabled={listPage >= totalPages - 1} onClick={() => setListPage(p => p + 1)}>Próxima</Button>
+            </Box>
+          </Box>
+        )}
 
         {/* Delete Edital Confirmation */}
         <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false })}>
           <DialogTitle>Confirmar Exclusão</DialogTitle>
           <DialogContent>
-            <DialogContentText>
-              Tem certeza que deseja excluir este edital? Esta ação não pode ser desfeita.
-            </DialogContentText>
+            <DialogContentText>Tem certeza que deseja excluir este edital? Esta ação não pode ser desfeita.</DialogContentText>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setDeleteDialog({ open: false })}>Cancelar</Button>
             <Button color="error" onClick={confirmDelete}>Excluir</Button>
           </DialogActions>
         </Dialog>
-
       </Box>
     );
   }
@@ -651,42 +517,74 @@ const EditaisPage: React.FC = () => {
   // RENDER — FORM VIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
-  return (
-    <Box sx={{ p: 3 }}>
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton onClick={() => setEditing(null)}>
-          <ArrowBack />
-        </IconButton>
-        <Typography variant="h5" fontWeight="bold">
-          {isNew ? 'Novo Edital' : 'Editar Edital'}
-        </Typography>
-      </Box>
+  const SIDE_W = 200;
 
-      {/* ── Tabs ──────────────────────────────────────────────────────────── */}
-      <Tabs
-        value={activeTab}
-        onChange={(_, v) => setActiveTab(v)}
-        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Tab label="Informações do Edital" />
-        <Tab label="Cargos e Vagas" />
-        <Tab label="Conteúdo Programático" />
-        <Tab label="Anexos" />
-      </Tabs>
+  return (
+    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+
+        {/* Sidemenu vertical (below navbar) */}
+        <Box
+          sx={{
+            width: sideOpen ? SIDE_W : 0,
+            minWidth: sideOpen ? SIDE_W : 0,
+            overflow: 'hidden',
+            borderRight: 'none',
+            borderColor: 'divider',
+            bgcolor: '#ffffff',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'all 0.2s ease',
+            py: 1,
+          }}
+        >
+          {/* Início — volta à lista */}
+          <Box
+            onClick={() => setEditing(null)}
+            sx={{
+              px: 2, py: 1, cursor: 'pointer', fontSize: '0.8125rem',
+              fontWeight: 400, color: '#5f6368', whiteSpace: 'nowrap',
+              '&:hover': { color: PRIMARY },
+            }}
+          >
+            Início
+          </Box>
+
+          {/* Seções do formulário */}
+          {[
+            { label: 'Informações do Edital', idx: 0 },
+            { label: 'Cargos e Vagas', idx: 1 },
+            { label: 'Conteúdo Programático', idx: 2 },
+            { label: 'Anexos', idx: 3 },
+          ].map((item) => (
+            <Box
+              key={item.idx}
+              onClick={() => setActiveTab(item.idx)}
+              sx={{
+                px: 2, py: 1, cursor: 'pointer', fontSize: '0.8125rem',
+                fontWeight: activeTab === item.idx ? 600 : 400,
+                color: activeTab === item.idx ? PRIMARY : '#5f6368',
+                whiteSpace: 'nowrap',
+                '&:hover': { color: PRIMARY },
+              }}
+            >
+              {item.label}
+            </Box>
+          ))}
+        </Box>
+
+        {/* Scrollable content */}
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 3, bgcolor: '#ffffff' }}>
 
       {/* ═════════════════════════════════════════════════════════════════════
           TAB 1 — Informações do Edital
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 0 && (
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" fontWeight="bold">Informações do Edital</Typography>
-            <Tooltip title="Salvar">
-              <IconButton onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, color: '#fff', '&:hover': { bgcolor: '#1557b0' }, width: 36, height: 36 }}>
-                {saving ? <CircularProgress size={18} color="inherit" /> : <Save fontSize="small" />}
-              </IconButton>
-            </Tooltip>
+        <Box sx={{ p: 3, bgcolor: '#fff' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#202124' }}>Informações do Edital</Typography>
+            <Button size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ color: PRIMARY, fontWeight: 600, fontSize: '0.8125rem', minWidth: 0 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
           </Box>
           <Grid container spacing={2}>
             {/* Número do Edital */}
@@ -866,7 +764,19 @@ const EditaisPage: React.FC = () => {
                 name="taxa_inscricao"
                 control={control}
                 render={({ field }) => (
-                  <TextField {...field} label="Taxa de Inscrição" fullWidth />
+                  <TextField
+                    {...field}
+                    label="Taxa de Inscrição"
+                    fullWidth
+                    placeholder="R$ 0,00"
+                    value={field.value}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      if (!digits) { field.onChange(''); return; }
+                      const num = (parseInt(digits, 10) / 100).toFixed(2);
+                      field.onChange(`R$ ${num.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`);
+                    }}
+                  />
                 )}
               />
             </Grid>
@@ -877,7 +787,18 @@ const EditaisPage: React.FC = () => {
                 name="validade"
                 control={control}
                 render={({ field }) => (
-                  <TextField {...field} label="Validade do Concurso" fullWidth />
+                  <TextField
+                    {...field}
+                    label="Validade do Concurso (anos)"
+                    fullWidth
+                    placeholder="Ex: 2"
+                    type="text"
+                    inputProps={{ inputMode: 'numeric' }}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      field.onChange(digits);
+                    }}
+                  />
                 )}
               />
             </Grid>
@@ -984,160 +905,211 @@ const EditaisPage: React.FC = () => {
               </TableBody>
             </Table>
           )}
-        </Paper>
+        </Box>
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════
           TAB 2 — Cargos e Vagas
           ═════════════════════════════════════════════════════════════════════ */}
-      {activeTab === 1 && (
-        <Box>
-          {cargos.map((cargo, cIdx) => (
-            <Paper key={cargo.id} sx={{ p: 3, mb: 2 }}>
-              {/* Header */}
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-                Cargo {cIdx + 1}{cargo.nome ? ` — ${cargo.nome}` : ''}
-              </Typography>
+      {activeTab === 1 && (() => {
+        const ROWS_PER_PAGE = 5;
+        const editCargo = editingCargoId ? cargos.find(c => c.id === editingCargoId) : null;
+        const filtered = cargos.filter(c =>
+          c.nome.toLowerCase().includes(cargoSearch.toLowerCase()) ||
+          c.nivel.toLowerCase().includes(cargoSearch.toLowerCase()) ||
+          c.requisitos.toLowerCase().includes(cargoSearch.toLowerCase())
+        );
+        const paged = filtered.slice(cargoPage * ROWS_PER_PAGE, (cargoPage + 1) * ROWS_PER_PAGE);
+        const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
 
-              {/* Row 1: Nome do Cargo + Nível + Vagas */}
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    label="Nome do Cargo"
-                    value={cargo.nome}
-                    onChange={(e) => updateCargo(cargo.id, 'nome', e.target.value)}
-                    fullWidth
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>Nível</InputLabel>
-                    <Select
-                      value={cargo.nivel}
-                      label="Nível"
-                      onChange={(e) => updateCargo(cargo.id, 'nivel', e.target.value)}
-                    >
-                      <MenuItem value="superior">Superior</MenuItem>
-                      <MenuItem value="medio">Médio</MenuItem>
-                      <MenuItem value="tecnico">Técnico</MenuItem>
-                      <MenuItem value="fundamental">Fundamental</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <TextField
-                    label="Total de Vagas"
-                    type="number"
-                    value={cargo.vagas_total}
-                    onChange={(e) => updateCargo(cargo.id, 'vagas_total', Math.max(0, Number(e.target.value)))}
-                    fullWidth
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                </Grid>
-              </Grid>
+        const nivelLabel = (n: string) => n === 'superior' ? 'Superior' : n === 'medio' ? 'Médio' : n === 'tecnico' ? 'Técnico' : 'Fundamental';
 
-              {/* Row 2: Remuneração, Carga Horária */}
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    label="Remuneração"
-                    value={cargo.remuneracao}
-                    onChange={(e) => updateCargo(cargo.id, 'remuneracao', e.target.value)}
-                    fullWidth
-                    placeholder="R$ 5.420,00"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    label="Carga Horária"
-                    value={cargo.carga_horaria}
-                    onChange={(e) => updateCargo(cargo.id, 'carga_horaria', e.target.value)}
-                    fullWidth
-                    placeholder="40h semanais"
-                  />
-                </Grid>
-              </Grid>
+        return (
+          <Box>
+            {/* ── Accordion: Novo Cargo ── */}
+            <Accordion
+              expanded={editingCargoId === '__new__'}
+              onChange={(_, expanded) => {
+                if (expanded) { addCargo(); setEditingCargoId('__new__'); }
+                else setEditingCargoId(null);
+              }}
+              sx={{ mb: 2 }}
+            >
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Add sx={{ fontSize: 18, color: PRIMARY }} />
+                  <Typography fontWeight={600} fontSize="0.9rem">Novo Cargo</Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                {cargos.length > 0 && (() => {
+                  const cargo = cargos[cargos.length - 1];
+                  return (
+                    <>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, md: 5 }}>
+                          <TextField label="Nome do Cargo" value={cargo.nome} onChange={(e) => updateCargo(cargo.id, 'nome', e.target.value)} fullWidth size="small" />
+                        </Grid>
+                        <Grid size={{ xs: 6, md: 2 }}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Nível</InputLabel>
+                            <Select value={cargo.nivel} label="Nível" onChange={(e) => updateCargo(cargo.id, 'nivel', e.target.value)}>
+                              <MenuItem value="superior">Superior</MenuItem>
+                              <MenuItem value="medio">Médio</MenuItem>
+                              <MenuItem value="tecnico">Técnico</MenuItem>
+                              <MenuItem value="fundamental">Fundamental</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid size={{ xs: 6, md: 2 }}>
+                          <TextField label="Vagas" type="number" value={cargo.vagas_total} onChange={(e) => updateCargo(cargo.id, 'vagas_total', Math.max(0, Number(e.target.value)))} fullWidth size="small" slotProps={{ htmlInput: { min: 0 } }} />
+                        </Grid>
+                        <Grid size={{ xs: 6, md: 3 }}>
+                          <TextField label="Remuneração" value={cargo.remuneracao} onChange={(e) => updateCargo(cargo.id, 'remuneracao', e.target.value)} fullWidth size="small" placeholder="R$ 5.420,00" />
+                        </Grid>
+                      </Grid>
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid size={{ xs: 6, md: 3 }}>
+                          <TextField label="Carga Horária" value={cargo.carga_horaria} onChange={(e) => updateCargo(cargo.id, 'carga_horaria', e.target.value)} fullWidth size="small" placeholder="40h semanais" />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 9 }}>
+                          <TextField label="Requisitos" value={cargo.requisitos} onChange={(e) => updateCargo(cargo.id, 'requisitos', e.target.value)} fullWidth size="small" placeholder="Graduação em Enfermagem + COREN ativo" />
+                        </Grid>
+                      </Grid>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 1 }}>
+                        <Button size="small" onClick={() => setEditingCargoId(null)} sx={{ color: '#5f6368' }}>Cancelar</Button>
+                        <Button size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ color: PRIMARY, fontWeight: 600 }}>
+                          {saving ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                      </Box>
+                    </>
+                  );
+                })()}
+              </AccordionDetails>
+            </Accordion>
 
-              {/* Row 3: Requisitos */}
-              <Box sx={{ mt: 2 }}>
-                <TextField
-                  label="Requisitos"
-                  value={cargo.requisitos}
-                  onChange={(e) => updateCargo(cargo.id, 'requisitos', e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="Graduação em Enfermagem + COREN ativo"
+            {/* ── Tabela de cargos com edição inline ── */}
+            <Box sx={{ mt: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <TextField size="small" placeholder="Buscar cargo..." value={cargoSearch}
+                  onChange={(e) => { setCargoSearch(e.target.value); setCargoPage(0); }}
+                  sx={{ width: { xs: '100%', sm: 280 } }}
+                  slotProps={{
+                    input: {
+                      startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: '#9aa0a6' }} /></InputAdornment>,
+                      endAdornment: cargoSearch ? (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => { setCargoSearch(''); setCargoPage(0); }}><Close sx={{ fontSize: 16 }} /></IconButton>
+                        </InputAdornment>
+                      ) : null,
+                    },
+                  }}
                 />
+                <Typography variant="caption" color="text.secondary">
+                  {filtered.length} cargo{filtered.length !== 1 ? 's' : ''}
+                </Typography>
               </Box>
 
-              {/* Distribuição de Vagas */}
-              {cargo.vagas_total > 0 && (
-                <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                  <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    Distribuição de Vagas ({cargo.vagas_total} total)
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Cargo</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Nível</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Vagas</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Remuneração</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>CH</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem' }}>Requisitos</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#5f6368', fontSize: '0.8125rem', width: 90 }}>Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paged.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>Nenhum cargo cadastrado.</TableCell></TableRow>
+                    ) : paged.map((cargo) => {
+                      const isEditing = editingCargoId === cargo.id;
+                      return (
+                        <TableRow key={cargo.id} hover sx={{ bgcolor: isEditing ? '#e8f0fe' : 'inherit' }}>
+                          <TableCell>{isEditing
+                            ? <TextField size="small" value={cargo.nome} onChange={(e) => updateCargo(cargo.id, 'nome', e.target.value)} variant="standard" fullWidth />
+                            : (cargo.nome || '—')}</TableCell>
+                          <TableCell>{isEditing
+                            ? <Select size="small" value={cargo.nivel} onChange={(e) => updateCargo(cargo.id, 'nivel', e.target.value)} variant="standard" sx={{ minWidth: 90 }}>
+                                <MenuItem value="superior">Superior</MenuItem><MenuItem value="medio">Médio</MenuItem>
+                                <MenuItem value="tecnico">Técnico</MenuItem><MenuItem value="fundamental">Fundamental</MenuItem>
+                              </Select>
+                            : <Chip size="small" label={nivelLabel(cargo.nivel)} color={cargo.nivel === 'superior' ? 'primary' : cargo.nivel === 'medio' ? 'info' : cargo.nivel === 'tecnico' ? 'secondary' : 'default'} variant="outlined" />
+                          }</TableCell>
+                          <TableCell>{isEditing
+                            ? <TextField size="small" type="number" value={cargo.vagas_total} onChange={(e) => updateCargo(cargo.id, 'vagas_total', Math.max(0, Number(e.target.value)))} variant="standard" sx={{ width: 60 }} slotProps={{ htmlInput: { min: 0 } }} />
+                            : cargo.vagas_total}</TableCell>
+                          <TableCell>{isEditing
+                            ? <TextField size="small" value={cargo.remuneracao} onChange={(e) => updateCargo(cargo.id, 'remuneracao', e.target.value)} variant="standard" sx={{ width: 110 }} />
+                            : (cargo.remuneracao || '—')}</TableCell>
+                          <TableCell>{isEditing
+                            ? <TextField size="small" value={cargo.carga_horaria} onChange={(e) => updateCargo(cargo.id, 'carga_horaria', e.target.value)} variant="standard" sx={{ width: 80 }} />
+                            : (cargo.carga_horaria || '—')}</TableCell>
+                          <TableCell>{isEditing
+                            ? <TextField size="small" value={cargo.requisitos} onChange={(e) => updateCargo(cargo.id, 'requisitos', e.target.value)} variant="standard" fullWidth />
+                            : <Typography variant="body2" noWrap sx={{ maxWidth: 180 }}>{cargo.requisitos || '—'}</Typography>}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              {isEditing ? (
+                                <Tooltip title="Salvar">
+                                  <IconButton size="small" onClick={() => { handleSubmit(onSubmit)(); setEditingCargoId(null); }} sx={{ color: PRIMARY }}>
+                                    <Save fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip title="Editar">
+                                  <IconButton size="small" onClick={() => setEditingCargoId(cargo.id)} sx={{ color: PRIMARY }}>
+                                    <Edit fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              <Tooltip title="Excluir">
+                                <IconButton size="small" color="error" onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}>
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {totalPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, px: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Página {cargoPage + 1} de {totalPages}
                   </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {calcDistribuicao(cargo.vagas_total, cotas).map((d) => (
-                      <Chip
-                        key={d.tipo}
-                        label={`${d.label}: ${d.vagas}`}
-                        size="small"
-                        color={d.tipo === 'ampla' ? 'primary' : d.tipo === 'negro' ? 'warning' : d.tipo === 'pcd' ? 'info' : 'success'}
-                        variant={d.tipo === 'ampla' ? 'filled' : 'outlined'}
-                      />
-                    ))}
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Button size="small" disabled={cargoPage === 0} onClick={() => setCargoPage(p => p - 1)} sx={{ minWidth: 32, textTransform: 'none' }}>Anterior</Button>
+                    <Button size="small" disabled={cargoPage >= totalPages - 1} onClick={() => setCargoPage(p => p + 1)} sx={{ minWidth: 32, textTransform: 'none' }}>Próxima</Button>
                   </Box>
                 </Box>
               )}
-
-              {/* ── Footer: Salvar + Excluir ── */}
-              <Divider sx={{ my: 2 }} />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />}
-                  onClick={handleSubmit(onSubmit)}
-                  disabled={saving}
-                  sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}
-                >
-                  Salvar
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  startIcon={<Delete />}
-                  onClick={() => setDeleteCargoDialog({ open: true, cargoId: cargo.id })}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Excluir
-                </Button>
-              </Box>
-            </Paper>
-          ))}
-
-          {/* Adicionar Cargo (always at the bottom) */}
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={addCargo}
-            fullWidth
-            sx={{ color: PRIMARY, borderColor: PRIMARY, borderStyle: 'dashed', py: 1.5, textTransform: 'none', fontSize: '0.9rem' }}
-          >
-            Adicionar Cargo
-          </Button>
-        </Box>
-      )}
+            </Box>
+          </Box>
+        );
+      })()}
 
       {/* ═════════════════════════════════════════════════════════════════════
           TAB 3 — Conteúdo Programático
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 2 && (
-        <Box>
+        <Box sx={{ p: 3, bgcolor: '#fff' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#202124' }}>Conteúdo Programático</Typography>
+            <Button size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ color: PRIMARY, fontWeight: 600, fontSize: '0.8125rem', minWidth: 0 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </Box>
           {/* ── Conhecimentos Básicos ── */}
-          <Paper sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="subtitle1" fontWeight="bold">Conhecimentos Básicos</Typography>
               <FormControlLabel
@@ -1175,17 +1147,17 @@ const EditaisPage: React.FC = () => {
               <Button size="small" startIcon={<Add />} onClick={addConteudoBasico} sx={{ textTransform: 'none' }}>
                 Adicionar Tópico
               </Button>
-              <Button size="small" variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}>
-                Salvar
+              <Button size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ color: PRIMARY, fontWeight: 600 }}>
+                {saving ? 'Salvando...' : 'Salvar'}
               </Button>
             </Box>
-          </Paper>
+          </Box>
 
           {/* ── Conhecimentos Específicos ── */}
           <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Conhecimentos Específicos</Typography>
 
           {conteudosEspecificos.map((disc) => (
-            <Paper key={disc.id} sx={{ p: 3, mb: 2 }}>
+            <Box key={disc.id} sx={{ mb: 3, pb: 3, borderBottom: '1px solid #e8eaed' }}>
               <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
                 {disc.nome || 'Disciplina'}
               </Typography>
@@ -1234,15 +1206,15 @@ const EditaisPage: React.FC = () => {
                   Adicionar Tópico
                 </Button>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button size="small" variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}>
-                    Salvar
+                  <Button size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ color: PRIMARY, fontWeight: 600 }}>
+                    {saving ? 'Salvando...' : 'Salvar'}
                   </Button>
-                  <Button size="small" variant="outlined" color="error" startIcon={<Delete />} onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })} sx={{ textTransform: 'none' }}>
+                  <Button size="small" color="error" onClick={() => setDeleteDisciplinaDialog({ open: true, discId: disc.id })}>
                     Excluir
                   </Button>
                 </Box>
               </Box>
-            </Paper>
+            </Box>
           ))}
 
           {/* Adicionar Disciplina (dashed, full width) */}
@@ -1256,9 +1228,12 @@ const EditaisPage: React.FC = () => {
           TAB 4 — Anexos
           ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 3 && (
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight="bold">Anexos do Edital</Typography>
+        <Box sx={{ p: 3, bgcolor: '#fff' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#202124' }}>Anexos</Typography>
+            <Button size="small" onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ color: PRIMARY, fontWeight: 600, fontSize: '0.8125rem', minWidth: 0 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
           </Box>
 
           <TableContainer>
@@ -1314,18 +1289,15 @@ const EditaisPage: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {/* Footer: Adicionar + Salvar */}
-          <Divider sx={{ my: 2 }} />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Button size="small" startIcon={<Add />} onClick={() => openAnexoModal()} sx={{ textTransform: 'none' }}>
+          <Box sx={{ mt: 2 }}>
+            <Button size="small" startIcon={<Add />} onClick={() => openAnexoModal()} sx={{ color: PRIMARY }}>
               Adicionar Anexo
             </Button>
-            <Button size="small" variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={handleSubmit(onSubmit)} disabled={saving} sx={{ bgcolor: PRIMARY, textTransform: 'none', '&:hover': { bgcolor: '#1557b0' } }}>
-              Salvar
-            </Button>
           </Box>
-        </Paper>
+        </Box>
       )}
+
+      </Box>{/* end scrollable content */}
 
       {/* ═════════════════════════════════════════════════════════════════════
           Dialogs

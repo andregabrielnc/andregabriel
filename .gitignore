@@ -20,6 +20,14 @@ dist-ssr
 # Claude Code memory
 .claude/
 
+# Windsurf
+.windsurf/
+
+# BMad
+_bmad/
+_bmad-output/
+bmad-help/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
